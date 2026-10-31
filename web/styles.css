@@ -143,18 +143,18 @@ h2 { margin: 0; font-size: 16px; font-weight: 500; color: var(--text); letter-sp
 .time { color: var(--faint); font-size: 12px; font-variant-numeric: tabular-nums; }
 .bubble-text { margin: 0; font-size: 15px; line-height: 1.65; color: var(--muted); }
 
+/* Highlights are soft tints only, like Notion's: no colored underlines, so nothing reads as an alarm. */
 mark.claim-mark {
-  color: var(--text); cursor: pointer; border-radius: 3px; padding: 1px 2px;
-  background: transparent; border-bottom: 1.5px dotted var(--faint);
-  transition: background-color .4s, border-color .4s;
+  color: var(--text); cursor: pointer; border-radius: 4px; padding: 1px 2px;
+  background: transparent; transition: background-color .4s var(--ease-out);
 }
-mark.m-checking { animation: shimmer 1.4s ease-in-out infinite; border-bottom-color: var(--muted); }
-mark.m-true { background: var(--true-bg); border-bottom: 1.5px solid var(--true); }
-mark.m-false { background: var(--false-bg); border-bottom: 1.5px solid var(--false); }
-mark.m-misleading { background: var(--misleading-bg); border-bottom: 1.5px dashed var(--misleading); }
-mark.m-unverifiable { background: var(--unverifiable-bg); border-bottom: 1.5px dashed var(--unverifiable); }
-mark.m-contested { background: var(--contested-bg); border-bottom: 1.5px dotted var(--contested); }
-mark.m-value { background: var(--value-bg); border-bottom: 1.5px dotted var(--value); }
+mark.m-checking { animation: shimmer 1.4s ease-in-out infinite; }
+mark.m-true { background: var(--true-bg); }
+mark.m-false { background: var(--false-bg); }
+mark.m-misleading { background: var(--misleading-bg); }
+mark.m-unverifiable { background: var(--unverifiable-bg); }
+mark.m-contested { background: var(--contested-bg); }
+mark.m-value { background: var(--value-bg); }
 mark.provisional { background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(55, 53, 47, .05) 6px 12px); }
 mark.flash { animation: flash 1s ease-out 2; }
 
@@ -189,7 +189,8 @@ mark.flash { animation: flash 1s ease-out 2; }
 .card.k-contested { --tone: var(--contested); --tone-bg: var(--contested-bg); }
 .card.k-value { --tone: var(--value); --tone-bg: var(--value-bg); }
 .card.provisional { border-style: dashed; }
-.card.focus { box-shadow: 0 0 0 2px var(--tone); }
+.card { transition: box-shadow 200ms var(--ease-out); }
+.card.focus { box-shadow: 0 0 0 2px var(--ring); } /* found from the transcript: a neutral ring, never red */
 .badge.changed { animation: badge 320ms var(--ease-out); }
 .card-meta { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .speaker-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
