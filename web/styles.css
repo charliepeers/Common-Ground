@@ -170,8 +170,9 @@ mark.flash { animation: flash 1s ease-out 2; }
 .caption-text { font-style: italic; }
 
 /* ---------- context pane ---------- */
-.stats { display: flex; gap: 22px; flex-wrap: wrap; padding: 18px 24px 0; font-size: 13px; color: var(--muted); }
-.stats b { color: var(--text); font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.stats { display: flex; gap: 8px; flex-wrap: wrap; padding: 18px 24px 0; font-size: 12.5px; font-weight: 500; }
+.stats span { padding: 1px 8px; border-radius: 6px; }
+.stats b { font-weight: 500; font-variant-numeric: tabular-nums; }
 .cards { flex: 1; overflow-y: auto; padding: 18px 24px 32px; display: flex; flex-direction: column; gap: 16px; }
 
 /* ---------- a card: the words that were said, then what to make of them ---------- */

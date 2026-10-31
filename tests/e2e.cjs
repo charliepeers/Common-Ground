@@ -112,6 +112,12 @@ async function openRecap(page) {
   check(stats.includes('0 contested') && stats.includes('1 value'), `contested claims and values are counted apart (${stats})`);
   check(stats.includes('1 unverified') && !stats.includes('missing context'), `the tally says unverified (${stats})`);
   check(!/\d\.\ds|median/.test(stats), 'no seconds are shown');
+  const tallyColors = await page.evaluate(() => {
+    const color = (sel) => getComputedStyle(document.querySelector(sel)).color;
+    const tally = [...document.querySelectorAll('#stats span')].map((span) => getComputedStyle(span).color);
+    return { tally, labels: [color('.card.v-true .badge'), color('.card.v-false .badge'), color('.card.v-unverifiable .badge'), null, color('.card.k-value .badge')] };
+  });
+  check(tallyColors.labels.every((color, i) => color === null || color === tallyColors.tally[i]), `the tally uses the title label colors (${tallyColors.tally.join(' / ')})`);
   check(await count('#scoreboard, .score') === 0, 'no per-speaker tally');
   check(await count('.card.fresh') === 0 && await count('.card.v-false .badge.changed') === 4, 'a false verdict lands like any other: its badge settles in, no ring');
   await page.screenshot({ path: `${shots}/2-study-group-done.png` });

@@ -678,14 +678,16 @@ function updateStats() {
   const count = (verdict) => settled.filter((c) => c.verdict.verdict === verdict).length;
   const values = all.filter((c) => c.kind === 'value').length;
   const items = [
-    [settled.length, 'facts checked'],
-    [count('false'), 'false'],
-    [count('misleading') + count('unverifiable'), 'unverified'],
-    [all.filter((c) => c.kind === 'contested').length, 'contested'],
-    [values, values === 1 ? 'value' : 'values'],
+    [settled.length, 'facts checked', 'true'],
+    [count('false'), 'false', 'false'],
+    [count('misleading') + count('unverifiable'), 'unverified', 'unverifiable'],
+    [all.filter((c) => c.kind === 'contested').length, 'contested', 'contested'],
+    [values, values === 1 ? 'value' : 'values', 'value'],
   ];
-  $('#stats').replaceChildren(...items.map(([n, label]) => {
+  $('#stats').replaceChildren(...items.map(([n, label, tone]) => { // the same colors as the labels on the cards
     const span = h('span');
+    span.style.color = `var(--${tone})`;
+    span.style.background = `var(--${tone}-bg)`;
     span.append(h('b', null, String(n)), ` ${label}`);
     return span;
   }));
