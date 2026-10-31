@@ -108,6 +108,20 @@ async function openRecap(page) {
   check(await page.locator('.card:not([hidden])').count() === 1, 'values filter shows only the value card');
   await page.click('#filters [data-filter="all"]');
 
+  // Clear: within one conversation a repeated claim is remembered; after Clear it's checked fresh
+  await typeIn(page, study.lines.slice(0, 1));
+  await page.waitForFunction(() => document.querySelectorAll('.card.v-false').length === 5, null, { timeout: 15000 });
+  check(await page.locator('.card.v-false', { hasText: 'Said before' }).count() === 1, 'a repeated claim is marked as said before');
+  page.once('dialog', (d) => d.accept());
+  await page.click('#clear');
+  await page.waitForFunction(() => !document.querySelector('.bubble, .card'), null, { timeout: 5000 });
+  check(await page.locator('#transcript-empty').isVisible() && await page.locator('#cards-empty').isVisible(), 'clear empties the transcript and the cards');
+  check(await count('.score') === 0 && (await page.locator('#stats').textContent()).startsWith('0 facts checked'), 'clear resets the tally and the scoreboard');
+  await typeIn(page, study.lines.slice(0, 1)); // typed at once, while the new connection opens
+  await page.waitForSelector('.card.v-false', { timeout: 15000 });
+  check(!(await page.locator('.card.v-false').textContent()).includes('Said before'), 'after clear, the same claim is checked fresh');
+  check(await count('.pill.live') === 1, 'reconnected after clear');
+
   // Worldviews: LeCun's own words, with Karpathy pinned as a voice
   await page.reload();
   await page.waitForSelector('.pill.live');

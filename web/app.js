@@ -36,7 +36,10 @@ const state = {
   sound: false,
   running: null,
   cued: null, // a video chosen and shown, waiting for Play
+  pending: [], // messages sent while the connection was still opening
 };
+
+const empties = {}; // the empty-state hints, put back when the conversation is cleared
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -80,27 +83,35 @@ function clock(t) {
 
 // ---------- connection ----------
 
+// One connection is one server session. Events from a connection that has been replaced
+// (see clearConversation) are ignored.
 function connect() {
   const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
   ws.binaryType = 'arraybuffer';
+  state.ws = ws;
   ws.addEventListener('open', () => {
+    if (state.ws !== ws) return;
     state.connected = true;
     renderStatus();
     if (state.voices.length) send({ type: 'voices', names: state.voices });
     for (const [raw, s] of state.speakers) if (s.label !== raw) send({ type: 'rename', speaker: raw, name: s.label });
+    for (const message of state.pending.splice(0)) send(message);
   });
   ws.addEventListener('close', () => {
+    if (state.ws !== ws) return;
     state.connected = false;
     renderStatus();
     if (state.running) stop();
     setTimeout(connect, 1000);
   });
-  ws.addEventListener('message', (event) => handle(JSON.parse(event.data)));
-  state.ws = ws;
+  ws.addEventListener('message', (event) => {
+    if (state.ws === ws) handle(JSON.parse(event.data));
+  });
 }
 
 function send(message) {
   if (state.ws?.readyState === WebSocket.OPEN) state.ws.send(JSON.stringify(message));
+  else if (state.ws?.readyState === WebSocket.CONNECTING) state.pending.push(message);
 }
 
 function say(speakerName, text) {
@@ -932,6 +943,38 @@ function closeRecap() {
   $('#recap').hidden = true;
 }
 
+// ---------- clear: start over ----------
+
+function clearConversation() {
+  if (state.lines.size && !confirm('Clear the conversation and start over?')) return;
+  if (state.running) stop();
+  uncue();
+  closeRecap();
+  // A new connection is a new server session: earlier lines stop being context and repeats, and
+  // results still on their way for the old conversation can't land in the new one.
+  const old = state.ws;
+  state.pending = [];
+  connect();
+  old?.close();
+  state.connected = false;
+  renderStatus();
+  state.lines.clear();
+  state.claims.clear();
+  state.speakers.clear();
+  state.lastBubble = null;
+  state.t0 = null;
+  ticker.queue.length = 0;
+  clearTimeout(ticker.timer);
+  ticker.timer = null;
+  $('#chyron').hidden = true;
+  setCaption('', '');
+  $('#transcript').replaceChildren(empties.transcript);
+  $('#cards').replaceChildren(empties.cards);
+  $('#speaker-list').replaceChildren();
+  $('#toasts').replaceChildren();
+  updateStats();
+}
+
 function plural(n, word) {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
@@ -945,12 +988,15 @@ function applyTheme(theme) {
 
 async function init() {
   applyTheme(store('cg-theme') || 'dark');
+  empties.transcript = $('#transcript-empty');
+  empties.cards = $('#cards-empty');
   state.config = await fetch('/api/config').then((r) => r.json());
   buildSourceMenu();
   renderStatus();
   updateStats();
 
   $('#start').addEventListener('click', start);
+  $('#clear').addEventListener('click', clearConversation);
   $('#say').addEventListener('submit', (event) => {
     event.preventDefault();
     const text = $('#say-text').value.trim();

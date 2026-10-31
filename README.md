@@ -65,6 +65,7 @@ On screen:
 - **The lower third** announces verdicts and takes one at a time. When several land together they queue, at most four with the oldest dropped, and a backlog moves faster (3.5 s each instead of 6.5 s).
 - **Common ground**, the recap, opens by itself when a clip ends, or with ◎ or the S key. It lists the facts checked (false first), the open questions with who stands where, and the values that are yours to weigh.
 - **Presentation mode** (the P key) hides the controls and enlarges the text. Esc closes the recap.
+- **Clear** stops whatever is playing and starts over: an empty page and a fresh session on the server, so nothing from the old conversation carries into the new one. Voices you brought in stay.
 
 **On a phone:** browsers only allow the microphone over HTTPS, so open the app through a tunnel. Then open the https link it prints:
 
