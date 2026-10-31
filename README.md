@@ -4,7 +4,7 @@ One device listens to a conversation, talk or broadcast, and works through every
 
 | Lane | What it is | What you see |
 |---|---|---|
-| **Fact** | Settled and checkable: dates, numbers, records, who holds an office | A small verdict (true, false, missing context, unverified), what's actually so when it isn't true, and the sites checked |
+| **Fact** | Settled and checkable: dates, numbers, records, who holds an office | A small verdict (true, false, unverified), what's actually so when it isn't true, and the sites checked |
 | **Contested** | About how the world is, but informed people disagree ("LLMs can't really reason") | No verdict. How credible people see it, **in their own words**, each quote linked to its page |
 | **Value** | What should be done ("we should spend more on space than on defense") | No verdict and no voices. What's at stake, and the reminder that this one is yours |
 
@@ -55,7 +55,7 @@ Open http://localhost:8000 and press **Start**, at the top right. One microphone
 On screen:
 
 - **The transcript** is a two-line strip that stays on the latest words; scroll it up to read back.
-- **Icons** read by how solid a claim is. A fact is one disc, filled as far as the evidence goes: whole for True or False, a slice gone for Missing context, hollow for Unverified. Contested claims and values are two positions: views that overlap, and two weights on a balance.
+- **Icons** read by how solid a claim is. A fact is one disc, filled as far as the evidence goes: whole for True or False, hollow for Unverified. Contested claims and values are two positions: views that overlap, and two weights on a balance.
 - **Cards** lead with the exact words that were said. A plain fact gets a small verdict and, when it isn't true, one line on what is, with its sources cited inline as one chip (`en.wikipedia +1`); hovering the chip shows each page's title, excerpt and site logo. A value shows what's at stake and leaves it to you. A contested claim lists the other voices, one row per person: who, where they stand, a one-line summary and the source. Click a row to open it to the person's exact words and the page they come from.
 - **Push back** asks for a deeper re-check; **Dismiss** removes a card, its highlight and its place in the tally.
 - **Clear** (on the transcript panel) starts over: an empty page and a fresh session on the server, so nothing from the old conversation carries into the new one.
@@ -176,7 +176,7 @@ The benchmark starts from text, so speech-to-text time is not included. Speech-t
 - **One voice per person.** A contested claim shows `MAX_TAKES` voices, 2 by default, and the same name from two pages counts once.
 - **One sentence, one card.** Never split a sentence into several claims. A claim's quote must come from the line being checked, and the same claim never gets a second card, in code as well as in the prompts.
 - **Quotes are verbatim or dropped.** Every perspective quote is checked in code against the text of its page.
-- **Contested isn't false.** Stances are color-coded in hues the verdicts don't use (pink for disagrees, yellow for complicates, gray for agrees), so a disagreeing take never reads as a red "false".
+- **Contested isn't false.** Stance tags take the color of the card's title label, so a disagreeing take never reads as a red "false". The word and symbol say where each person stands.
 - **Humans get the last word.**
   - Anyone can push back on a verdict. Claude re-checks with a deeper web search and says whether it changed its mind.
   - Anyone can dismiss a card. It leaves the page, the transcript highlight, the tally and the recap.

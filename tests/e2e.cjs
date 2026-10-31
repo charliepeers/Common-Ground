@@ -85,7 +85,7 @@ async function openRecap(page) {
   check((await page.locator('#recap-facts li .tag').first().textContent()).includes('False'), 'recap leads with what was false');
   check(await count('#recap #recap-values li') === 1 && await count('#recap #recap-questions li.recap-empty') === 1, 'recap: one value, no open questions');
   const order = await page.locator('#recap-facts li .tag').allTextContents();
-  check(order.slice(0, 4).every((t) => t.includes('False')) && order.slice(4, 7).every((t) => t.includes('True')), `recap puts false claims first (${order.join(', ')})`);
+  check(order.slice(0, 4).every((t) => t.includes('False')) && order[4].includes('Unverified') && order.slice(5, 8).every((t) => t.includes('True')), `recap puts false claims first (${order.join(', ')})`);
   await page.waitForTimeout(900); // let the entrance animations finish before the picture
   await page.screenshot({ path: `${shots}/2b-recap.png` });
   await page.keyboard.press('Escape');
@@ -109,6 +109,8 @@ async function openRecap(page) {
   await page.waitForFunction(() => !document.querySelector('.sources.open'), null, { timeout: 3000 });
   const stats = await page.locator('#stats').textContent();
   check(stats.includes('8 facts checked') && stats.includes('4 false'), `stats: ${stats}`);
+  check(stats.includes('0 contested') && stats.includes('1 value'), `contested claims and values are counted apart (${stats})`);
+  check(stats.includes('1 unverified') && !stats.includes('missing context'), `the tally says unverified (${stats})`);
   check(!/\d\.\ds|median/.test(stats), 'no seconds are shown');
   check(await count('#scoreboard, .score') === 0, 'no per-speaker tally');
   check(await count('.card.fresh') === 0 && await count('.card.v-false .badge.changed') === 4, 'a false verdict lands like any other: its badge settles in, no ring');
@@ -191,7 +193,8 @@ async function openRecap(page) {
   await page.screenshot({ path: `${shots}/4b-take-opened.png` });
   check(await count('.take.s-disagrees') >= 1 && await count('.take.s-agrees') >= 1, 'takes span agree and disagree');
   const stanceColors = await page.evaluate(() => ['disagrees', 'complicates', 'agrees'].map((s) => getComputedStyle(document.querySelector(`.take.s-${s} .stance`)).color));
-  check(new Set(stanceColors).size === 3, `disagrees, complicates and agrees each have their own color (${stanceColors.join(' / ')})`);
+  const labelColor = await page.evaluate(() => getComputedStyle(document.querySelector('.card.k-contested .badge')).color);
+  check(stanceColors.every((color) => color === labelColor), `stance tags match the card's title label (${stanceColors.join(' / ')})`);
   check(await count('mark.m-contested') === 3, 'contested claims are highlighted in the transcript');
   await openRecap(page);
   check(await count('#recap #recap-questions li') === 3 && await count('#recap #recap-questions .voice') >= 6, 'recap shows the open questions and who stands where');

@@ -12,14 +12,15 @@ function h(tag, className, text, attrs) {
 }
 
 // One family of icons, read by how solid it is. A fact is one disc, filled as far as the evidence goes:
-// whole for true or false, a slice gone for missing context, hollow for unverified. Contested claims
+// whole for true or false, hollow for unverified. Contested claims
 // and values are two positions: views that overlap, and two weights on a balance.
 const svg = (shapes) => `<svg viewBox="0 0 16 16" aria-hidden="true">${shapes}</svg>`;
+const UNVERIFIED = { label: 'Unverified', icon: svg('<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2.6 2.27"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/>') };
 const VERDICT = {
   true: { label: 'True', icon: svg('<circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.9 8.3l2.2 2.2 4-4.4" fill="none" stroke="var(--card)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>') },
   false: { label: 'False', icon: svg('<circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" fill="none" stroke="var(--card)" stroke-width="1.7" stroke-linecap="round"/>') },
-  misleading: { label: 'Missing context', icon: svg('<path d="M8 8V1a7 7 0 1 0 7 7z" fill="currentColor"/><path d="M10 .9a7 7 0 0 1 5 5H10z" fill="currentColor" opacity=".28"/>') },
-  unverifiable: { label: 'Unverified', icon: svg('<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2.6 2.27"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/>') },
+  misleading: UNVERIFIED, // the model keeps it apart so its correction shows; on screen it's one category
+  unverifiable: UNVERIFIED,
 };
 const KIND = {
   contested: { label: 'Contested', icon: svg('<circle cx="5.4" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="10.6" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.33a4.5 4.5 0 0 1 0 7.34a4.5 4.5 0 0 1 0-7.34z" fill="currentColor"/>') },
@@ -675,11 +676,13 @@ function updateStats() {
   const all = [...state.claims.values()];
   const settled = all.filter((c) => c.kind === 'fact' && c.verdict && !c.verdict.provisional);
   const count = (verdict) => settled.filter((c) => c.verdict.verdict === verdict).length;
+  const values = all.filter((c) => c.kind === 'value').length;
   const items = [
     [settled.length, 'facts checked'],
     [count('false'), 'false'],
-    [count('misleading'), 'missing context'],
-    [all.filter((c) => c.kind !== 'fact').length, 'contested & values'],
+    [count('misleading') + count('unverifiable'), 'unverified'],
+    [all.filter((c) => c.kind === 'contested').length, 'contested'],
+    [values, values === 1 ? 'value' : 'values'],
   ];
   $('#stats').replaceChildren(...items.map(([n, label]) => {
     const span = h('span');
@@ -781,7 +784,7 @@ function recapList(target, claims, render, empty) {
 
 function openRecap() {
   const claims = [...state.claims.values()];
-  const order = { false: 0, misleading: 1, true: 2, unverifiable: 3 };
+  const order = { false: 0, misleading: 1, unverifiable: 1, true: 2 };
   const facts = claims.filter((c) => c.kind === 'fact' && c.verdict && !c.verdict.provisional)
     .sort((a, b) => order[a.verdict.verdict] - order[b.verdict.verdict]); // what was wrong comes first
   const open = claims.filter((c) => c.kind === 'contested');
@@ -800,8 +803,8 @@ function openRecap() {
     if (voices.childElementCount) item.append(voices);
   }, 'No contested claims yet.');
   recapList('#recap-values', values, (item, c) => item.append(quoted(c), recapWho(c.speaker)), 'No value claims yet.');
-  const falses = facts.filter((c) => ['false', 'misleading'].includes(c.verdict.verdict)).length;
-  $('#recap-sub').textContent = `${plural(facts.length, 'fact')} checked, ${falses} false or missing context · `
+  const falses = facts.filter((c) => c.verdict.verdict !== 'true').length;
+  $('#recap-sub').textContent = `${plural(facts.length, 'fact')} checked, ${falses} false or unverified · `
     + `${plural(open.length, 'open question')} · ${plural(values.length, 'value')}`;
   $('#recap').hidden = false;
 }

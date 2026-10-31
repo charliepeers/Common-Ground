@@ -25,10 +25,6 @@
   --value: #9065b0;
   --value-bg: #f4f0f7;
   /* Stances use hues the verdicts don't, so a disagreeing take never reads as a red "false". */
-  --disagrees: #c14c8a;
-  --disagrees-bg: #f9eef3;
-  --complicates: #cb912f;
-  --complicates-bg: #fbf3db;
   --radius: 14px;
   --shadow-sm: 0 2px 2px #0000000a;
   --shadow: 0 0 0 1px #00000014, 0 1px 1px #00000005, 0 4px 8px -4px #0000000a, 0 16px 24px -8px #0000000f;
@@ -155,7 +151,7 @@ mark.claim-mark {
 mark.m-checking { animation: shimmer 1.4s ease-in-out infinite; border-bottom-color: var(--muted); }
 mark.m-true { background: var(--true-bg); border-bottom: 1.5px solid var(--true); }
 mark.m-false { background: var(--false-bg); border-bottom: 1.5px solid var(--false); }
-mark.m-misleading { background: var(--misleading-bg); border-bottom: 1.5px solid var(--misleading); }
+mark.m-misleading { background: var(--misleading-bg); border-bottom: 1.5px dashed var(--misleading); }
 mark.m-unverifiable { background: var(--unverifiable-bg); border-bottom: 1.5px dashed var(--unverifiable); }
 mark.m-contested { background: var(--contested-bg); border-bottom: 1.5px dotted var(--contested); }
 mark.m-value { background: var(--value-bg); border-bottom: 1.5px dotted var(--value); }
@@ -298,10 +294,8 @@ mark.flash { animation: flash 1s ease-out 2; }
 .person { font-weight: 500; font-size: 14px; }
 .stance {
   font-size: 12px; font-weight: 500;
-  padding: 1px 8px; border-radius: 6px; color: var(--muted); background: var(--panel-2);
+  padding: 1px 8px; border-radius: 6px; color: var(--tone); background: var(--tone-bg);
 }
-.s-disagrees .stance { color: var(--disagrees); background: var(--disagrees-bg); }
-.s-complicates .stance { color: var(--complicates); background: var(--complicates-bg); }
 .s-disagrees .stance::before { content: "\21C4  "; }
 .s-agrees .stance::before { content: "=  "; }
 .s-complicates .stance::before { content: "\2248  "; }
@@ -356,9 +350,7 @@ mark.flash { animation: flash 1s ease-out 2; }
 .recap-col li .tag { font-size: 12px; font-weight: 500; margin-right: 6px; padding: 1px 6px; border-radius: 6px; }
 .recap-col li .fix { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
 .recap-col li .voices { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-.recap-col li .voice { font-size: 12px; padding: 1px 8px; border-radius: 6px; background: var(--panel-2); color: var(--muted); }
-.recap-col li .voice.s-disagrees { color: var(--disagrees); background: var(--disagrees-bg); }
-.recap-col li .voice.s-complicates { color: var(--complicates); background: var(--complicates-bg); }
+.recap-col li .voice { font-size: 12px; padding: 1px 8px; border-radius: 6px; background: var(--contested-bg); color: var(--contested); }
 .recap-empty { color: var(--faint); font-size: 13.5px; }
 .recap-col li .tag { display: inline-flex; align-items: center; gap: 4px; vertical-align: 1px; }
 .tag.v-true { color: var(--true); background: var(--true-bg); }
