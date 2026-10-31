@@ -122,6 +122,38 @@ async def test_the_same_claim_in_different_words_gets_no_second_card():
     assert kinds(events) == ["line", "claim", "verdict", "line"]
 
 
+async def test_the_same_pronoun_words_about_someone_else_are_a_new_claim():
+    obama = {**fact("He was born in Kenya"), "claim": "Barack Obama was born in Kenya."}
+    lincoln = {**fact("He was born in Kenya"), "claim": "Abraham Lincoln was born in Kenya."}
+    says = [("A", "He was born in Kenya."), ("B", "He was born in Kenya too.")]
+    _, _, events = await run({says[0][1]: [obama], says[1][1]: [lincoln]}, says)
+    assert [e["claim"] for e in events if e["type"] == "claim"] == [obama["claim"], lincoln["claim"]]
+
+
+async def test_a_claim_whose_check_died_can_be_checked_again():
+    class Flaky(FakeBackend):
+        async def check(self, line, speaker, context, on_early, on_done):
+            self.calls.append(("check", line, context))
+            await on_early(0, {"quote": "Biden is 47th", "claim": "Biden is 47th.", "kind": "fact"})
+            if len(self.calls) == 1:
+                raise ConnectionError("the stream died")
+            await on_done(0, {**fact("Biden is 47th"), "search_ms": 1, "llm_ms": 1})
+            return {}
+
+    events = []
+
+    async def emit(event):
+        events.append(event)
+
+    session = Session(emit, Flaky({}))
+    await session.hear("A", "Biden is 47th")
+    await asyncio.sleep(0.01)
+    await session.hear("A", "Biden is 47th")
+    while session._tasks:
+        await asyncio.sleep(0.01)
+    assert kinds(events) == ["line", "claim", "error", "line", "claim", "verdict"]
+
+
 async def test_a_quote_from_an_earlier_line_gets_no_card():
     lines = {"Kirk was killed by an extremist": [fact("Kirk was killed by an extremist")],
              "who had no plan": [{**fact("Kirk was killed by an extremist"), "claim": "Someone else's words."}]}

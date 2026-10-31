@@ -29,13 +29,13 @@ VOICES_OBJECTIVE = (
     "interviews and talks by researchers, practitioners and journalists. Prefer the person's own words "
     "over coverage of them."
 )
-_REFERENCE = re.compile(r"\b(he|she|they|it|his|her|their|them|this|that|these|those)\b", re.I)
+REFERENCE = re.compile(r"\b(he|she|they|it|his|her|their|them|this|that|these|those)\b", re.I)
 
 
 def search_query(line: str, context: list[tuple[str, str]]) -> str:
     """The line as spoken. Short or pronoun-heavy lines borrow the previous line for context."""
     words = len(line.split())
-    if context and (words < 6 or (words < 14 and _REFERENCE.search(line))):
+    if context and (words < 6 or (words < 14 and REFERENCE.search(line))):
         return f"{context[-1][1]} {line}"
     return line
 

@@ -104,6 +104,14 @@ def test_long_turns_are_cut_and_the_rest_goes_at_turn_end():
     assert [r["text"] for r in rest] == ["done."]  # only the words not already sent
 
 
+def test_a_long_turn_is_cut_into_its_sentences():
+    seg = TurnSegmenter()
+    text = " ".join(["one"] * 15) + ". " + " ".join(["two"] * 15) + ". " + " ".join(["three"] * 6)
+    words = [(w, True, i * 100) for i, w in enumerate(text.split())]
+    _, early = seg.feed(turn(0, words))
+    assert [len(r["text"].split()) for r in early] == [15, 15, 6]
+
+
 def test_unknown_short_turns_keep_the_last_speaker():
     seg = TurnSegmenter()
     seg.feed(turn(0, [("Hello", True, 100), ("there", True, 300), ("friend.", True, 500)], end=True, label="B"))

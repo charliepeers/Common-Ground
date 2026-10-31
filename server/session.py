@@ -10,6 +10,7 @@ from typing import Awaitable, Callable
 import anthropic
 
 from . import config
+from .backends import REFERENCE
 from .segmenter import SentenceJoiner
 from .util import ms_since, normalize
 
@@ -146,22 +147,29 @@ class Session:
                 self.suggested.add(guess["speaker"])
                 await self.emit({"type": "speaker_guess", **guess})
 
-    def _is_new(self, fields: dict, line: dict) -> bool:
-        """A claim gets one card, on the line it was said in. Given earlier lines as context, Claude can
-        reach back and claim them again; the same words said twice are the same claim."""
+    def _new_keys(self, fields: dict, line: dict) -> set[str]:
+        """What identifies a claim that can have a card, or nothing if it can't. A claim gets one card, on
+        the line it was said in: given earlier lines as context, Claude can reach back and claim them again.
+        The same words are the same claim, unless they lean on context: "He was born there" can be anyone."""
         quote, claim = normalize(fields.get("quote", "")), normalize(fields.get("claim", ""))
-        if not quote or quote not in normalize(line["text"]) or {quote, claim} & self.seen:
-            return False
-        self.seen |= {quote, claim}
-        return True
+        if not quote or quote not in normalize(line["text"]):
+            return set()
+        keys = {claim} if REFERENCE.search(quote) else {quote, claim}
+        return set() if keys & self.seen else keys
 
     async def _check(self, line: dict, context: list[tuple[str, str]], spoken_at: float | None) -> None:
         start = time.perf_counter()
         ids: dict[int, str] = {}
+        unfinished: dict[int, set[str]] = {}
 
         async def on_early(i: int, fields: dict) -> None:
-            if i in ids or len(ids) >= MAX_CLAIMS_PER_LINE or not self._is_new(fields, line):
+            if i in ids or len(ids) >= MAX_CLAIMS_PER_LINE:
                 return
+            keys = self._new_keys(fields, line)
+            if not keys:
+                return
+            self.seen |= keys
+            unfinished[i] = keys
             claim = {
                 "id": self._id("c"),
                 "line_id": line["id"],
@@ -179,6 +187,7 @@ class Session:
                 await on_early(i, data)
             if i not in ids:
                 return
+            unfinished.pop(i, None)
             claim = self.claims[ids[i]]
             claim.update(
                 quote=data.get("quote", claim["quote"]),
@@ -214,6 +223,9 @@ class Session:
         except Exception as err:
             log.exception("check failed")
             await self.emit({"type": "error", "message": f"Couldn't check that line. {describe(err)}"})
+        finally:
+            for keys in unfinished.values():  # the check died: if someone says it again, try again
+                self.seen -= keys
 
     async def _settle(self, claim: dict, verdict: dict, start: float, spoken_at: float | None) -> None:
         verdict = with_receipts(verdict)

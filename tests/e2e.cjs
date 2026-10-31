@@ -75,6 +75,8 @@ async function openRecap(page) {
   // A plain list, newest card on top
   check(await count('.stack, .deck, .stack-toggle') === 0, 'cards are a plain list, not stacks');
   check((await page.locator('#cards .card').first().textContent()).includes('robotics'), 'the newest card is on top');
+  const orange = await page.evaluate(() => getComputedStyle(document.querySelector('.card.v-unverifiable .badge')).color);
+  check(orange === 'rgb(217, 115, 13)', `an unverified claim is orange (${orange})`);
   check(await count('.card .badge .ico svg') === 9 && await count('.card.checking') === 0, `every card has its icon (${await count('.card .badge .ico svg')})`);
 
   await openRecap(page);

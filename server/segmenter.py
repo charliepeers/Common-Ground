@@ -148,7 +148,8 @@ class TurnSegmenter:
         final = [w for w in words if w.get("word_is_final")]
         if len(final) - self.sent >= MAX_WORDS:
             chunk = final[self.sent:]
-            ready.append({"speaker": speaker, "text": " ".join(w.get("text", "") for w in chunk), "spoken_at": self._at(chunk[-1])})
+            text = " ".join(w.get("text", "") for w in chunk)
+            ready = [{"speaker": speaker, "text": s, "spoken_at": self._at(chunk[-1])} for s in split_sentences(text)]
             self.sent = len(final)
         live = " ".join(w.get("text", "") for w in words[self.sent:])
         return {"type": "caption", "speaker": speaker, "text": live}, ready
