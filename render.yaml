@@ -1,0 +1,23 @@
+# Render Blueprint: https://dashboard.render.com/blueprints
+# One process serves the page and /ws. A second instance would split a live session.
+services:
+  - type: web
+    name: common-ground
+    runtime: python
+    branch: main
+    region: virginia
+    # Smallest plan that stays running. `free` sleeps and drops an open listening session.
+    plan: 0.5c-512mb
+    numInstances: 1
+    healthCheckPath: /api/config
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server.app:app --host 0.0.0.0 --port $PORT --workers 1
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: EXA_API_KEY
+        sync: false
+      - key: ASSEMBLYAI_API_KEY
+        sync: false
+      - key: DEEPGRAM_API_KEY
+        sync: false
