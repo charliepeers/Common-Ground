@@ -687,7 +687,6 @@ function updateStats() {
   $('#stats').replaceChildren(...items.map(([n, label, tone]) => { // the same colors as the labels on the cards
     const span = h('span');
     span.style.color = `var(--${tone})`;
-    span.style.background = `var(--${tone}-bg)`;
     span.append(h('b', null, String(n)), ` ${label}`);
     return span;
   }));
