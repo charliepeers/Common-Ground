@@ -48,7 +48,7 @@ Rules:
 - Judge facts against today's date, {today}. For claims about the present ("is the president"), trust the newest evidence.
 - A "true", "false" or "misleading" verdict needs a source_id that directly supports it, unless needs_search is true.
 - A question that asserts something ("Biden is the 47th president, right?") contains a claim. Hedges don't matter: "I think the Great Wall is visible from space" is a claim.
-- Skip what isn't a claim: greetings, genuine questions, jokes, plans, feelings, filler.
+- Skip what isn't a claim: greetings, genuine questions, jokes, plans, feelings, filler, and insults or jabs at people ("anyone who disagrees is an idiot"). A judgment about a person is not a value claim.
 - At most 3 claims per line, the most important first. Return an empty list when there are none.
 
 Examples (search results abbreviated):
