@@ -21,13 +21,13 @@ Fact-checking is the easy part. The interesting moment is when you're listening 
 
 ## Status: what is verified and what isn't
 
-- **Not yet run against the live APIs.** The build environment had no API keys, so no real Claude, Exa, AssemblyAI or Deepgram call has been made. **No latency has been measured.** The page shows a timing only when it was measured, which means live mode.
+- **Runs live, unmeasured.** The team has run it on a laptop with real Claude, Exa and AssemblyAI keys. **Nothing has been measured systematically yet:** no benchmark run, so no latency or accuracy figures. The page doesn't show timings; the benchmark is where they get measured.
 - **Request formats.**
   - The Claude calls are checked through the real `anthropic` 2.3.0 SDK against a mocked HTTP transport (`tests/test_wire.py`). That covers headers, body and the parsing of streamed events.
   - The Exa, AssemblyAI and Deepgram formats are checked against their official API references only.
 - **Tests.**
   - Python: segmenter rules, streaming JSON reader, receipts rule, verbatim-quote check, speaker naming, push-back, fast-mode fallback.
-  - Browser: `tests/e2e.cjs` drives the page against `tests/serve.py`, a test server that answers from the **fixed, hand-written data** in `tests/fixtures.json` and labels it as test data on screen. The app itself never serves that data. With `CLIP` set, the test also plays a video on the stage; so far only an 8-second clip, without speech-to-text.
+  - Browser: `tests/e2e.cjs` drives the page against `tests/serve.py`, a test server that answers from the **fixed, hand-written data** in `tests/fixtures.json` and labels it as test data on screen. The app itself never serves that data. The microphone path (browser audio through to speech-to-text) has no automated test.
 - **The first thing to do with keys** is measure. See "Measuring speed and accuracy".
 
 ## Run it
@@ -44,7 +44,7 @@ Fill in the keys in `.env` (git-ignored, so they can't be committed):
 
 - `ANTHROPIC_API_KEY` (line 2): Claude. Required.
 - `EXA_API_KEY` (line 6): search, and the takes from other voices. Without it, facts go to Claude's own web search (slower) and the takes are off.
-- `ASSEMBLYAI_API_KEY` (line 10), or `DEEPGRAM_API_KEY` (line 11): speech-to-text for a video file, a shared tab or the microphone. Without one, only Chrome's browser speech works.
+- `ASSEMBLYAI_API_KEY` (line 10), or `DEEPGRAM_API_KEY` (line 11): speech-to-text for the microphone. Required to listen; without one you can only type lines in.
 
 Then start the server:
 
@@ -52,21 +52,15 @@ Then start the server:
 .venv/bin/uvicorn server.app:app --port 8000
 ```
 
-Open http://localhost:8000 and pick a source:
-
-- **Video file, plays here:** press Start to choose a clip, then Play. It plays in the page with its sound while the audio streams to speech-to-text, and verdicts and takes appear over the picture. Without a speech-to-text key the clip still plays, but nothing in it is checked.
-- **Microphone (AssemblyAI or Deepgram):** one device for the whole room; voices are separated by diarization (see "Telling voices apart").
-- **Browser tab or video:** a YouTube talk, a livestream, a call. In Chrome, pick the tab and tick **Share tab audio**. The shared tab's picture shows on the stage.
-- **Browser speech (Chrome):** needs no speech key, but has no speaker labels and no punctuation.
-- **Typing a line** into the box under the transcript checks it the same way, with no speech-to-text.
+Open http://localhost:8000 and press **Start**. One microphone listens to the whole room, and voices are told apart by diarization (see "Telling voices apart"). To check a single line without speaking, type it into the box under the transcript.
 
 On screen:
 
-- **The lower third** announces verdicts and takes one at a time. When several land together they queue, at most four with the oldest dropped, and a backlog moves faster (3.5 s each instead of 6.5 s).
-- **Common ground**, the recap, opens by itself when a clip ends, or with ◎ or the S key. It lists the facts checked (false first), the open questions with who stands where, and the values that are yours to weigh.
-- **Cards** lead with the words that were said. A source shows as one chip (`en.wikipedia +2`); hovering it shows each page's title, excerpt and site logo.
-- **Presentation mode** (the P key) hides the controls and enlarges the text. Esc closes the recap.
-- **Clear** stops whatever is playing and starts over: an empty page and a fresh session on the server, so nothing from the old conversation carries into the new one. Voices you brought in stay.
+- **The transcript** is a two-line strip that stays on the latest words; scroll it up to read back.
+- **Cards** lead with the exact words that were said. A plain fact gets a small verdict and, when it isn't true, one line on what is, with its sources cited inline as one chip (`en.wikipedia +2`); hovering the chip shows each page's title, excerpt and site logo. Contested claims and values show the other voices, in their own words.
+- **Push back** asks for a deeper re-check; **Dismiss** removes a card, its highlight and its place in the tally.
+- **Clear** (top right, next to Start) starts over: an empty page and a fresh session on the server, so nothing from the old conversation carries into the new one. Voices you brought in stay.
+- **Keys:** S opens the recap ("Common ground": the facts checked, false first; the open questions with who stands where; the values that are yours to weigh). P toggles presentation mode. Esc closes the recap.
 
 **On a phone:** browsers only allow the microphone over HTTPS, so open the app through a tunnel. Then open the https link it prints:
 
@@ -78,14 +72,14 @@ cloudflared tunnel --url http://localhost:8000
 
 ```mermaid
 flowchart LR
-  A[Mic or tab audio] -->|16 kHz PCM over WebSocket| S[FastAPI server]
+  A[Microphone] -->|16 kHz PCM over WebSocket| S[FastAPI server]
   S --> T[AssemblyAI or Deepgram streaming]
   T --> G[Segmenter: is the statement complete?]
   G -->|one sentence| X[Exa search on the raw sentence]
   X --> C[One streamed LLM call, Claude Sonnet 5.5 by default: find, sort and judge the claims]
   C -->|fact with sources| V[Verdict]
   C -->|fact the search missed| E[Targeted search, then verdict] --> V
-  C -->|contested or value| P[Search named voices, X posts included] --> Q[Claude picks takes; quotes checked verbatim] --> W[Perspectives]
+  C -->|contested or value| P[Search named voices and X] --> Q[Claude picks takes; quotes checked verbatim] --> W[Perspectives]
   V --> UI[Browser]
   W --> UI
   UI -->|push back| D[Claude searches the web itself] --> V
@@ -94,7 +88,7 @@ flowchart LR
 The pieces:
 
 1. **Browser (`web/`, no build step).**
-   - An AudioWorklet turns the mic, tab or video-file audio into 16 kHz mono PCM and streams it to the server over one WebSocket. A video file plays in the page and its sound is tapped with `createMediaElementSource`, so the audience hears what is being checked.
+   - An AudioWorklet turns the microphone into 16 kHz mono PCM and streams it to the server over one WebSocket.
    - Events come back the same way and are drawn as they arrive: lines, claims, verdicts and perspectives.
 2. **Speech-to-text (`server/stt.py`).** The server relays the audio to AssemblyAI Universal-3.6 Pro (`speaker_labels=true`) or Deepgram Nova-3 (`diarize_model=latest`), and gets back words with speaker labels.
 3. **Segmenter (`server/segmenter.py`).** Decides when a statement is complete enough to check (rules below).
@@ -106,7 +100,10 @@ The pieces:
 
    It also handles push-back and suggests names for anonymous speakers.
 5. **Claude layer (`server/llm.py`, `prompts.py`, `schemas.py`).** Each role has its own model (see "Model and vendor choices"); all calls use JSON-schema outputs. Push-back uses Claude's own web search tool, with a strict `submit_verdict` tool for the answer.
-6. **Search (`server/search.py`).** Exa `lite`, Exa's type for real-time and voice use. Each request sends only what `lite` accepts, and the server logs any `warnings` Exa returns about ignored fields.
+6. **Search (`server/search.py`).** Exa `lite`, Exa's type for real-time and voice use.
+   - Facts: 10 results per search, with an `objective` that tells Exa to rank primary and authoritative sources first (official pages, data, research, reference works, established news). Claude cites every result that backs a verdict, up to 5, most authoritative first.
+   - Contested claims and values: searches for the named voices, plus X itself on the topic, so takes come from people's own posts as well as the open web. X posts feed this lane, not verdicts: a post saying something doesn't make it true.
+   - Each request sends only what `lite` accepts, and the server logs any `warnings` Exa returns about ignored fields.
 
 ### When does a statement get sent?
 
@@ -296,17 +293,16 @@ On the independent [Pipecat streaming benchmark](https://github.com/pipecat-ai/s
 
 ## A three-minute walkthrough
 
-1. **A clip, checked as it plays.** Pin *Andrej Karpathy* as a voice, choose *Video file*, and play two minutes of a LeCun talk. Verdicts land over the picture; the contested cards fill with what the search finds, each quote linked.
-2. **Push back.** Dispute a verdict and watch the re-check.
-3. **The room.** Switch to the microphone. One person says *"Joe Biden is the 47th president, right?"* (he was the 46th) and another answers.
-4. **Common ground.** Open the recap: what was false, which questions stay open and who stands where, and the values the app leaves to you.
+1. **Facts.** Someone says *"Joe Biden is the 47th president, right?"* (he was the 46th). The card shows those words, False, what's actually so, and its sources.
+2. **Push back.** Dispute the verdict and watch the re-check.
+3. **Worldviews.** Pin *Andrej Karpathy* as a voice, then say *"LLMs can't really reason."* The card fills with how others see it, Karpathy first, each quote linked.
+4. **Common ground.** Press S for the recap: what was false, which questions stay open and who stands where, and the values the app leaves to you.
 
 ## Known limits
 
-- **Nothing measured.** No live API calls yet, no measured latency, and no measured accuracy. Run the benchmark first.
+- **Nothing measured.** No benchmark run yet, so no measured latency or accuracy. Run the benchmark first.
 - **Diarization from one microphone** has not been tested here. Overlapping speech, short interjections and similar voices are the usual trouble.
-- **Long clips are untested with live speech-to-text.** How the lower third keeps up over two or three minutes of real speech, with many claims, is unknown.
-- **Browser speech** has no speaker labels and no punctuation.
+- **Long conversations are untested.** How the page holds up over many minutes of real speech, with many claims, is unknown.
 - **X coverage is unknown.** It's unclear how much of X Exa's index covers; perspectives also search the open web.
 - **Verdicts are only as good as the sources the search finds.** That's why "unverified" exists.
 
@@ -337,10 +333,10 @@ For the browser test, start the test server, which answers from the fixed data i
 .venv/bin/python -m tests.serve 8765
 ```
 
-Then run the script. It needs Playwright with Chromium (`npm install playwright` and `npx playwright install chromium`), and `CLIP` adds the video-stage checks:
+Then run the script. It needs Playwright with Chromium (`npm install playwright` and `npx playwright install chromium`):
 
 ```bash
-CLIP=path/to/short-clip.webm node tests/e2e.cjs http://localhost:8765
+node tests/e2e.cjs http://localhost:8765
 ```
 
 ## Working on it
@@ -352,9 +348,8 @@ CLIP=path/to/short-clip.webm node tests/e2e.cjs http://localhost:8765
 ## Open work, most valuable first
 
 1. **Measure.** Run the benchmark (fast mode on and off, effort low and medium, Exa and Claude search), and time speech-to-text on real audio.
-2. **Run 2–3 minute clips with live keys.** Check that the lower third keeps up, that sentences are cut where they should be, and that the recap reads well at the end.
+2. **Run long real conversations.** Check that sentences are cut where they should be, that the right claims get cards, and that the recap reads well at the end.
 3. **Speechmatics with enrolled voices** for when the speakers are known in advance.
 4. **Test the naming hypothesis.** Run perspectives on the same contested claims with the speaker named and anonymous, and compare the verified quotes found.
 5. **Compare other live models.** An adapter for GPT-6.1 Terra and DeepSeek V4.1 Flash, run through the same benchmark.
 6. **Race two search providers.** Run Exa and Brave on the first search and take whichever answers first.
-7. **YouTube by URL.** Check a video from its captions ahead of time.

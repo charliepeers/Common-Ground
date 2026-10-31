@@ -34,13 +34,13 @@ async function settle(page, bubbles) {
 }
 
 async function openRecap(page) {
-  await page.click('#recap-show');
+  await page.evaluate(() => document.activeElement?.blur()); // S types into a focused input instead
+  await page.keyboard.press('s');
   await page.waitForSelector('#recap:not([hidden])', { timeout: 5000 });
 }
 
 (async () => {
-  const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
-  const clip = process.env.CLIP; // a short video for the video-file source
+  const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   page.on('pageerror', (err) => problems.push(`page error: ${err.message}`));
   page.on('console', (msg) => { if (msg.type() === 'error') problems.push(`console error: ${msg.text()}`); });
@@ -49,20 +49,25 @@ async function openRecap(page) {
   await page.goto(base);
   await page.waitForSelector('body[data-connected="true"]', { timeout: 10000 });
   check(await page.locator('.pill.warn', { hasText: 'test data, not model output' }).count() === 1, 'test data is labeled as such');
-  check(await page.locator('#chyron').isHidden(), 'no empty lower third before the first verdict');
-  check(await count('#status .pill') === 1 && await count('#theme, #present') === 0, 'no status pills beyond the test-data label, no theme or presentation icons');
-  const options = await page.locator('#source option').allTextContents();
-  check(options.length === 4 && !options.some((o) => /demo|script|replay|test/i.test(o)), `only real sources are offered: ${options.join(' | ')}`);
+  check(await count('#status .pill') === 1, 'no status pills beyond the test-data label');
+  check(await count('#source, #filters, .legend, #chyron, #stage, #recap-show, #sound, #theme, #present, .latency') === 0,
+    'microphone only: no source menu, filters, legend, pop-ups or header icons');
+  const header = await page.locator('.topbar .controls button').allTextContents();
+  check(header.join('|') === 'Clear|Start', `Clear and Start sit at the top right (${header.join(', ')})`);
 
   // Facts: a study-group conversation
   const study = conversation('study-group');
   await typeIn(page, study.lines.slice(0, 1), study.voices);
   await page.waitForSelector('.card.v-false', { timeout: 15000 });
-  await page.waitForSelector('#chyron:not([hidden])', { timeout: 5000 });
-  check((await page.locator('#chyron .tag').textContent()).includes('False'), 'chyron announces the false claim');
+  await page.waitForTimeout(400);
   await page.screenshot({ path: `${shots}/1-first-false-claim.png` });
   await typeIn(page, study.lines.slice(1));
   await settle(page, study.lines.length);
+  const strip = await page.evaluate(() => {
+    const box = document.querySelector('#transcript');
+    return { height: box.clientHeight, atEnd: box.scrollHeight - box.scrollTop - box.clientHeight < 8, overflows: box.scrollHeight > box.clientHeight };
+  });
+  check(strip.height < 80 && strip.overflows && strip.atEnd, `the transcript is a two-line strip on its latest lines (${strip.height}px)`);
 
   await openRecap(page);
   check(await count('#recap-facts li') === 8, `recap lists the 8 checked facts (${await count('#recap-facts li')})`);
@@ -70,7 +75,6 @@ async function openRecap(page) {
   check(await count('#recap #recap-values li') === 1 && await count('#recap #recap-questions li.recap-empty') === 1, 'recap: one value, no open questions');
   const order = await page.locator('#recap-facts li .tag').allTextContents();
   check(order.slice(0, 4).every((t) => t.includes('False')) && order.slice(4, 7).every((t) => t.includes('True')), `recap puts false claims first (${order.map((t) => t.split(' ')[1]).join(', ')})`);
-  check(await count('#recap-show li') === 0, 'the recap button holds no list items');
   await page.waitForTimeout(900); // let the entrance animations finish before the picture
   await page.screenshot({ path: `${shots}/2b-recap.png` });
   await page.keyboard.press('Escape');
@@ -93,7 +97,7 @@ async function openRecap(page) {
   await page.waitForFunction(() => !document.querySelector('.sources.open'), null, { timeout: 3000 });
   const stats = await page.locator('#stats').textContent();
   check(stats.includes('8 facts checked') && stats.includes('4 false'), `stats: ${stats}`);
-  check(!stats.includes('median') && await count('.latency') === 0, 'no latency is shown for unmeasured data');
+  check(!/\d\.\ds|median/.test(stats), 'no seconds are shown');
   check(await count('.score') === 3, `scoreboard has 3 speakers (${await count('.score')})`);
   await page.screenshot({ path: `${shots}/2-study-group-done.png` });
 
@@ -104,6 +108,7 @@ async function openRecap(page) {
   await wall.locator('button', { hasText: 'Re-check' }).click();
   await wall.locator('.pushback-note').waitFor({ timeout: 15000 });
   check((await wall.locator('.pushback-note .change').textContent()).includes('Held'), 'push-back holds the verdict and explains why');
+  check(await wall.locator('.badge.changed').count() === 1, 'the re-checked verdict badge animates in');
   await wall.scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${shots}/3-pushback.png` });
 
@@ -112,14 +117,10 @@ async function openRecap(page) {
   await page.locator('.speaker-name', { hasText: 'Alex' }).first().click();
   check(await page.locator('.score .who', { hasText: 'Alex R.' }).count() === 1, 'renaming a speaker updates the scoreboard');
 
-  // Filters
-  await page.click('#filters [data-filter="value"]');
-  check(await page.locator('.card:not([hidden])').count() === 1, 'values filter shows only the value card');
-  await page.click('#filters [data-filter="all"]');
-
   // Dismiss removes a card entirely
   const robotics = page.locator('.card', { hasText: 'robotics' });
   await robotics.locator('button', { hasText: 'Dismiss' }).click();
+  await page.waitForFunction(() => !document.querySelector('.card.v-unverifiable'), null, { timeout: 3000 });
   check(await count('.card.v-unverifiable') === 0 && await count('mark.m-unverifiable') === 0, 'dismiss removes the card and its highlight');
   check((await page.locator('#stats').textContent()).startsWith('7 facts checked'), 'dismiss takes the claim out of the tally');
 
@@ -140,11 +141,11 @@ async function openRecap(page) {
   await page.reload();
   await page.waitForSelector('body[data-connected="true"]');
   const lecture = conversation('ai-lecture');
-  await typeIn(page, lecture.lines.slice(0, 1), lecture.voices);
-  check(await page.locator('#voice-chips .chip', { hasText: 'Andrej Karpathy' }).count() === 1, 'a pinned voice shows as a chip');
+  // Pin someone the test data lists after others, so "pinned voices first" is really tested
+  await typeIn(page, lecture.lines.slice(0, 1), ['Ilya Sutskever']);
+  check(await page.locator('#voice-chips .chip', { hasText: 'Ilya Sutskever' }).count() === 1, 'a pinned voice shows as a chip');
   await page.waitForSelector('.take', { timeout: 20000 });
-  await page.waitForSelector('#chyron:not([hidden])', { timeout: 5000 });
-  check((await page.locator('#chyron .tag').textContent()).includes('Karpathy'), 'chyron leads with the pinned voice');
+  await page.waitForTimeout(600);
   await page.screenshot({ path: `${shots}/4-lecture-perspectives.png` });
   await typeIn(page, lecture.lines.slice(1));
   await page.waitForFunction(() => document.querySelectorAll('.takes').length === 4, null, { timeout: 15000 });
@@ -153,34 +154,14 @@ async function openRecap(page) {
   check(await count('.take-source[href^="https://"]') === 10, 'every take links to its source');
   check(await count('.take.s-disagrees') >= 1 && await count('.take.s-agrees') >= 1, 'takes span agree and disagree');
   check(await count('mark.m-contested') === 3, 'contested claims are highlighted in the transcript');
+  const catTakes = await page.locator('.card', { hasText: 'house cat' }).locator('.take .person').allTextContents();
+  check(catTakes[0] === 'Ilya Sutskever' && catTakes.length === 3, `a pinned voice's take comes first (${catTakes.join(', ')})`);
   await openRecap(page);
   check(await count('#recap #recap-questions li') === 3 && await count('#recap #recap-questions .voice') >= 6, 'recap shows the open questions and who stands where');
   await page.waitForTimeout(900);
   await page.screenshot({ path: `${shots}/5b-lecture-recap.png` });
   await page.keyboard.press('Escape');
   await page.screenshot({ path: `${shots}/5-lecture-done.png` });
-
-  // A video file plays on the stage, and verdicts appear over it
-  if (clip) {
-    await page.reload();
-    await page.waitForSelector('body[data-connected="true"]');
-    await page.selectOption('#source', 'video');
-    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#start')]);
-    await chooser.setFiles(clip);
-    await page.waitForSelector('#stage:not([hidden]) video');
-    check((await page.locator('#start .label').textContent()) === 'Play', 'a chosen clip is cued, waiting for Play');
-    await page.click('#start');
-    await page.waitForFunction(() => document.querySelector('#stage video').currentTime > 0.5, null, { timeout: 8000 });
-    check(true, 'the clip plays on the stage');
-    await typeIn(page, study.lines.slice(0, 1));
-    await page.waitForSelector('#stage #chyron:not([hidden])', { timeout: 15000 });
-    check((await page.locator('#stage #chyron .tag').textContent()).includes('False'), 'the verdict appears over the video');
-    await page.waitForTimeout(700);
-    await page.screenshot({ path: `${shots}/6a-video-stage.png` });
-    await page.waitForSelector('#recap:not([hidden])', { timeout: 30000 }); // the clip ends, the recap opens
-    check(await page.locator('#stage').isHidden(), 'the stage closes when the clip ends');
-    await page.keyboard.press('Escape');
-  }
 
   // Full width, then a phone-width layout
   await page.screenshot({ path: `${shots}/6-wide.png` });

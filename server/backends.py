@@ -5,6 +5,7 @@ import asyncio
 import logging
 import re
 import time
+from functools import partial
 
 from . import config
 from .llm import LLM
@@ -14,7 +15,20 @@ from .util import ms_since
 log = logging.getLogger("cg.backend")
 
 X_DOMAINS = ["x.com", "twitter.com"]
-MAX_PERSPECTIVE_SOURCES = 12
+MAX_PERSPECTIVE_SOURCES = 16
+FACT_RESULTS = 10  # Exa's default, and the most lite returns at its base price
+# Exa's `objective`: what a search is for, so the right kind of page ranks first.
+FACT_OBJECTIVE = (
+    "Evidence to verify or refute a statement made in a live conversation. Rank first: primary and "
+    "authoritative sources, such as official and government pages, original data and statistics, "
+    "peer-reviewed research, reference works and established news organizations. Rank last: content "
+    "farms, SEO pages, forums and unsourced posts."
+)
+VOICES_OBJECTIVE = (
+    "What credible, named people have said about this question in their own words: posts on X, essays, "
+    "interviews and talks by researchers, practitioners and journalists. Prefer the person's own words "
+    "over coverage of them."
+)
 _REFERENCE = re.compile(r"\b(he|she|they|it|his|her|their|them|this|that|these|those)\b", re.I)
 
 
@@ -42,7 +56,7 @@ class LiveBackend:
         if self.search:
             start = time.perf_counter()
             try:
-                sources = await self.search.search(search_query(line, context))
+                sources = await self.search.search(search_query(line, context), FACT_RESULTS, objective=FACT_OBJECTIVE)
             except Exception as err:
                 log.warning("search failed, checking without results: %s", err)
             timing["search_ms"] = ms_since(start)
@@ -61,7 +75,7 @@ class LiveBackend:
         if not self.search:
             result = await self.llm.deep_check(claim["claim"], claim["quote"], claim["speaker"])
             return {**result, "method": "claude-web-search", "timings": {"llm_ms": ms_since(start)}}
-        sources = await self.search.search(claim.get("query") or claim["claim"])
+        sources = await self.search.search(claim.get("query") or claim["claim"], FACT_RESULTS, objective=FACT_OBJECTIVE)
         search_ms = ms_since(start)
         result = await self.llm.verify(claim["claim"], claim["quote"], claim["speaker"], sources)
         return {**result, "method": "exa", "timings": {"search_ms": search_ms, "llm_ms": ms_since(start) - search_ms}}
@@ -76,15 +90,17 @@ class LiveBackend:
         return {**result, "method": "claude-web-search", "timings": {"llm_ms": ms_since(start)}}
 
     async def perspectives(self, claim: dict, voices: list[str]) -> dict:
-        """Fans out searches for named voices (their own posts on X, plus the wider web), then picks takes."""
+        """Fans out searches for named voices and for the conversation on X, then picks takes."""
         if not self.search:
             return {"perspectives": [], "timings": {}, "note": "Perspectives need EXA_API_KEY."}
         start = time.perf_counter()
         topic = claim.get("query") or claim["claim"]
         names = list(dict.fromkeys(voices + claim.get("voices", [])))[:4]
-        jobs = [self.search.search(f"{name} on {topic}", 3, highlight_chars=1200) for name in names]
-        jobs += [self.search.search(f"{name}: {topic}", 3, X_DOMAINS, highlight_chars=1200) for name in names[:2]]
-        jobs.append(self.search.search(f"the case against: {claim['claim']}", 4, highlight_chars=1200))
+        voices_search = partial(self.search.search, highlight_chars=1200, objective=VOICES_OBJECTIVE)
+        jobs = [voices_search(f"{name} on {topic}", 3) for name in names]
+        jobs += [voices_search(f"{name}: {topic}", 3, X_DOMAINS) for name in names[:2]]
+        jobs.append(voices_search(topic, 5, X_DOMAINS))  # what people on X say, beyond the named voices
+        jobs.append(voices_search(f"the case against: {claim['claim']}", 5))
         sources: dict[str, Source] = {}
         for result in await asyncio.gather(*jobs, return_exceptions=True):
             if isinstance(result, Exception):

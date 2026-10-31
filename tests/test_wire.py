@@ -126,6 +126,7 @@ async def test_streamed_check_over_the_wire():
     assert exa_headers["x-api-key"] == "exa-key"
     assert exa_body["type"] == "lite" and exa_body["query"].startswith("Okay so Joe Biden")
     assert exa_body["contents"] == {"highlights": {"maxCharacters": 700}}
+    assert exa_body["numResults"] == 10 and exa_body["objective"].startswith("Evidence to verify or refute")
 
 
 async def test_refused_fast_mode_retries_at_standard_speed_over_the_wire():

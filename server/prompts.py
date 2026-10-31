@@ -32,7 +32,7 @@ For facts:
 - confidence: "high", "medium" or "low".
 - explanation: what the evidence says, at most 20 words.
 - correction: for "false" or "misleading", the accurate version in at most 15 words; otherwise "".
-- source_ids: the numbers of the search results that back the verdict.
+- source_ids: every search result that directly backs the verdict, up to 5, most authoritative first (official and primary sources, research, reference works and established news before blogs, forums or posts).
 - needs_search: true when the results don't cover this claim, so the verdict rests on your own knowledge. A targeted search runs next with your query.
 - query: if needs_search, a short search query for this exact claim; otherwise "".
 - voices: [].
@@ -72,7 +72,7 @@ Verdicts:
 Rules:
 - A wrong red flag is worse than a missed one. Say "false" only when reliable evidence clearly contradicts the claim.
 - Judge against today's date, {today}. For claims about the present, trust the newest evidence.
-- A "true", "false" or "misleading" verdict must cite at least one result in source_ids that directly supports it.
+- A "true", "false" or "misleading" verdict must cite at least one result in source_ids that directly supports it. Cite every result that does, up to 5, most authoritative first.
 - explanation: what the evidence says, at most 20 words. correction: for "false" or "misleading", the accurate version in at most 15 words; otherwise ""."""
 
 DEEP_SYSTEM = """\
@@ -84,7 +84,7 @@ Verdicts:
 Rules:
 - A wrong red flag is worse than a missed one. Say "false" only when reliable evidence clearly contradicts the claim.
 - Judge against today's date, {today}. For claims about the present, trust the newest evidence.
-- source_urls: pages your searches returned that directly support the verdict. Cite only pages you actually saw.
+- source_urls: every page your searches returned that directly supports the verdict, up to 5, most authoritative first. Cite only pages you actually saw.
 - explanation: what the evidence says, at most 25 words. correction: for "false" or "misleading", the accurate version in at most 15 words; otherwise ""."""
 
 PERSPECTIVES_SYSTEM = """\
@@ -97,7 +97,7 @@ You get the claim, who said it, and excerpts from web pages that may contain oth
 - quote: an exact excerpt from that source's text, at most 40 words, copied character for character. It's checked against the page, and anything not verbatim is thrown away.
 - source_id: the number of the excerpt the quote comes from.
 
-Prefer disagreement and nuance over agreement: the listener already heard the speaker's side. Prefer the requested voices when their take is in the excerpts. Prefer people's own words (their posts, talks, essays) over a journalist's summary. Skip excerpts that don't speak to this claim, and return an empty list if nothing fits."""
+Prefer disagreement and nuance over agreement: the listener already heard the speaker's side. Prefer the requested voices when their take is in the excerpts. Prefer people's own words (their posts on X, talks, essays) over a journalist's summary, and people with real standing on the question. Skip excerpts that don't speak to this claim, and return an empty list if nothing fits."""
 
 
 NAME_SPEAKERS_SYSTEM = """\

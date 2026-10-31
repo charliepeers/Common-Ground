@@ -16,17 +16,11 @@
       </div>
     </div>
 
-    <div class="controls">
-      <select id="source" aria-label="Audio source"></select>
-      <button id="start" class="primary" type="button"><span class="dot"></span><span class="label">Start</span></button>
-      <button id="clear" class="secondary" type="button" title="Clear the conversation and start over">Clear</button>
-    </div>
-
     <div class="status" id="status" aria-live="polite"></div>
 
-    <div class="toggles">
-      <button id="recap-show" class="icon-btn" type="button" title="Common ground: what's settled and where people differ (S)">◎</button>
-      <button id="sound" class="icon-btn" type="button" title="Sound on false claims">🔇</button>
+    <div class="controls">
+      <button id="clear" class="secondary" type="button" title="Clear the conversation and start over">Clear</button>
+      <button id="start" class="primary" type="button" title="Listen through the microphone"><span class="dot"></span><span class="label">Start</span></button>
     </div>
   </header>
 
@@ -38,26 +32,11 @@
   </section>
 
   <main>
-    <section class="pane transcript-pane">
-      <div class="pane-head">
-        <h2>Transcript</h2>
-        <div class="legend">
-          <span class="lg v-true">✓ True</span><span class="lg v-false">✕ False</span><span class="lg v-misleading">… Missing context</span><span class="lg v-unverifiable">? Unverified</span><span class="lg k-contested">⇄ Contested</span><span class="lg k-value">◆ Value</span><span class="lg unchecked">Unmarked: not a claim, not checked</span>
-        </div>
-      </div>
-      <div id="stage" class="stage" hidden>
-        <div id="stage-media" class="stage-media"></div>
-        <div id="stage-status" class="stage-status"><span class="dot"></span><span class="text">Listening</span></div>
-      </div>
+    <section class="pane transcript-pane" aria-label="Transcript">
       <div id="transcript" class="transcript">
-        <div class="empty" id="transcript-empty">
-          <p class="empty-title">Pick a source and press Start.</p>
-          <p>Statements are checked sentence by sentence as people talk. Facts get a verdict with sources. Contested claims and values get the other side, in the words of the people who hold it.</p>
-          <p class="muted">Play a video file here, share a browser tab, or use the microphone. To check one line by hand, type it below.</p>
-        </div>
+        <p class="empty" id="transcript-empty">The transcript shows here, two lines at a time. Scroll up for the rest.</p>
       </div>
       <div id="caption" class="caption" hidden><span class="caption-speaker"></span><span class="caption-text"></span></div>
-      <div id="chyron" class="chyron" hidden></div>
       <form id="say" class="say" autocomplete="off">
         <input id="say-speaker" list="speaker-list" value="Me" aria-label="Speaker" class="say-speaker">
         <datalist id="speaker-list"></datalist>
@@ -69,17 +48,15 @@
     <aside class="pane claims-pane">
       <div class="pane-head">
         <h2>Context</h2>
-        <div class="filters" id="filters">
-          <button data-filter="all" class="on" type="button">All</button>
-          <button data-filter="fact" type="button">Facts</button>
-          <button data-filter="contested" type="button">Contested</button>
-          <button data-filter="value" type="button">Values</button>
-        </div>
       </div>
       <div id="stats" class="stats"></div>
       <div id="scoreboard" class="scoreboard"></div>
       <div id="cards" class="cards">
-        <div class="empty" id="cards-empty"><p>What's said gets its context here: checked facts, and how others see the rest.</p></div>
+        <div class="empty" id="cards-empty">
+          <p class="empty-title">Press Start and talk.</p>
+          <p>Each claim gets its context here. Facts are checked against sources; contested claims and values show how other people see them, in their own words.</p>
+          <p class="muted">One microphone for the whole room; voices are told apart. To check one line by hand, type it in above.</p>
+        </div>
       </div>
     </aside>
   </main>
@@ -101,7 +78,6 @@
     </div>
   </section>
 
-  <input id="video-file" type="file" accept="video/*,audio/*" hidden>
   <div id="toasts" class="toasts" aria-live="assertive"></div>
   <script type="module" src="/static/app.js"></script>
 </body>

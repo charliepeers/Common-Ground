@@ -34,9 +34,10 @@ class ExaSearch:
     fetches a page live. If an account rejects it, we fall back to "auto" once and stay there.
 
     Exa recommends sending only the query and bare highlights. The other fields here are deliberate:
-    numResults and highlight length bound how much text goes into each per-sentence Claude prompt
-    (prompt size is latency), and includeDomains is only used for the X search the perspectives lane
-    asks for. All of them are on lite's accepted list; lite rejects anything else with a 400.
+    numResults and highlight length bound how much text goes into each Claude prompt (prompt size is
+    latency), includeDomains is only used for the X searches the perspectives lane asks for, and
+    objective tells Exa which pages should rank first. All of them are on lite's accepted list; lite
+    rejects anything else with a 400.
     """
 
     URL = "https://api.exa.ai/search"
@@ -49,9 +50,10 @@ class ExaSearch:
     async def search(
         self,
         query: str,
-        num_results: int = 5,
+        num_results: int = 10,
         include_domains: list[str] | None = None,
         highlight_chars: int = 700,
+        objective: str = "",
     ) -> list[Source]:
         body: dict = {
             "query": query[:400],
@@ -61,11 +63,13 @@ class ExaSearch:
         }
         if include_domains:
             body["includeDomains"] = include_domains
+        if objective:  # what the search is for, so Exa ranks the right kind of page first
+            body["objective"] = objective
         r = await self.http.post(self.URL, json=body, headers={"x-api-key": self.api_key})
         if r.status_code == 400 and self.search_type != "auto":
             log.warning("Exa rejected type=%r (%s); using type='auto' from now on", self.search_type, r.text[:200])
             self.search_type = "auto"
-            return await self.search(query, num_results, include_domains, highlight_chars)
+            return await self.search(query, num_results, include_domains, highlight_chars, objective)
         r.raise_for_status()
         data = r.json()
         for warning in data.get("warnings") or []:  # request fields Exa ignored, and what to send instead

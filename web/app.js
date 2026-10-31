@@ -31,10 +31,7 @@ const state = {
   lastBubble: null,
   t0: null,
   voices: [],
-  filter: 'all',
-  sound: false,
   running: null,
-  cued: null, // a video chosen and shown, waiting for Play
   pending: [], // messages sent while the connection was still opening
 };
 
@@ -250,9 +247,10 @@ function setCaption(who, text) {
   $('.caption-text', box).textContent = text;
 }
 
+// The transcript stays on its latest lines, unless someone has scrolled up to read back.
 function scrollTranscript() {
   const box = $('#transcript');
-  box.scrollTop = box.scrollHeight;
+  if (box.dataset.pinned !== 'false') box.scrollTop = box.scrollHeight;
 }
 
 // ---------- claims ----------
@@ -280,20 +278,8 @@ function setVerdict(event) {
   const alarming = !event.provisional && !event.repeat && (event.verdict === 'false' || event.verdict === 'misleading');
   refreshMark(claim, alarming);
   renderCard(claim, alarming);
+  if (event.pushback) $('.badge', claim.card)?.classList.add('changed'); // the re-check's answer lands visibly
   updateStats();
-  const source = event.sources?.[0];
-  if (event.pushback) {
-    const now = VERDICT[event.verdict].label;
-    chyron(event.verdict, event.pushback.changed ? 'Changed' : 'Held', `${quoted(claim)} → ${now}`, event.pushback.note);
-  } else if (alarming) {
-    const detail = [event.correction || event.explanation, source && domain(source.url)].filter(Boolean).join('  ·  ');
-    chyron(event.verdict, `${VERDICT[event.verdict].icon} ${VERDICT[event.verdict].label}`, quoted(claim), detail);
-    beep();
-  } else if (stageOn() && !event.provisional && !event.repeat) {
-    // Over a video, like a broadcast fact-check, every settled claim gets its moment.
-    const detail = [event.explanation, source && domain(source.url)].filter(Boolean).join('  ·  ');
-    chyron(event.verdict, `${VERDICT[event.verdict].icon} ${VERDICT[event.verdict].label}`, quoted(claim), detail, 4500);
-  }
 }
 
 function setDebate(event) {
@@ -311,13 +297,7 @@ function setPerspectives(event) {
   if (!claim) return;
   claim.perspectives = event.perspectives;
   claim.perspectivesNote = event.note;
-  claim.perspectivesTimings = event.timings;
   renderCard(claim);
-  updateStageStatus();
-  const lead = event.perspectives.find((p) => state.voices.includes(p.person)) ?? event.perspectives[0];
-  if (lead) {
-    chyron('contested', `⇄ ${lead.person}`, `“${lead.quote}”`, `${STANCE[lead.stance]} with ${speaker(claim.speaker).label}  ·  ${domain(lead.source?.url || '')}`);
-  }
 }
 
 function pushbackFailed(event) {
@@ -329,10 +309,6 @@ function pushbackFailed(event) {
   toast(event.message, 'error');
 }
 
-function matchesFilter(claim) {
-  return state.filter === 'all' || claim.kind === state.filter;
-}
-
 // A card leads with the words that were said. A plain fact then gets a small verdict and the sites
 // checked; anything else gets its context: what's actually so, or the people who see it differently.
 function renderCard(claim, fresh = false) {
@@ -340,7 +316,6 @@ function renderCard(claim, fresh = false) {
   const tone = claim.kind !== 'fact' ? `k-${claim.kind}` : v ? `v-${v.verdict}` : 'checking';
   const flags = [v?.provisional && 'provisional', fresh && 'fresh'].filter(Boolean);
   claim.card.className = ['card', tone, ...flags].join(' ');
-  claim.card.hidden = !matchesFilter(claim);
   const quote = h('blockquote', 'card-quote', quoted(claim), { title: 'Show in transcript' });
   quote.addEventListener('click', () => refreshMark(claim, true));
   claim.card.replaceChildren(cardMeta(claim), quote);
@@ -362,8 +337,6 @@ function cardMeta(claim) {
   meta.append(dot, who);
   const line = state.lines.get(claim.line_id);
   if (line) meta.append(h('span', 'time', clock(line.t)));
-  const chip = latencyChip(claim.kind === 'fact' ? claim.verdict?.timings : claim.perspectivesTimings);
-  if (chip) meta.append(chip);
   return meta;
 }
 
@@ -379,21 +352,6 @@ function badge(claim) {
   return node;
 }
 
-function latencyChip(t) {
-  // Only measured timings are ever shown, which means live mode.
-  if (!t || !state.config.timings_measured) return null;
-  const shown = t.since_speech_ms ?? t.total_ms;
-  if (shown == null) return null;
-  const chip = h('span', `latency${shown < 2500 ? ' fast' : ''}`, `⚡ ${(shown / 1000).toFixed(1)}s`);
-  const parts = [];
-  if (t.search_ms) parts.push(`search ${t.search_ms} ms`);
-  if (t.llm_ms) parts.push(`Claude ${t.llm_ms} ms`);
-  if (t.total_ms != null) parts.push(`${t.total_ms} ms from sentence to screen`);
-  if (t.since_speech_ms != null) parts.push(`${t.since_speech_ms} ms after the words were spoken`);
-  chip.title = parts.join(' · ');
-  return chip;
-}
-
 function factBody(claim) {
   const card = claim.card;
   const v = claim.verdict;
@@ -403,20 +361,20 @@ function factBody(claim) {
   if (!v) return;
   // True needs nothing but its sources; anything else says what's actually so.
   const context = v.verdict === 'true' ? '' : v.verdict === 'unverifiable' ? v.explanation : v.correction || v.explanation;
-  if (v.leaning) {
-    const lean = VERDICT[v.leaning]?.label.toLowerCase() ?? v.leaning;
-    row.append(h('span', 'verdict-text', `Leans ${lean}, but no source confirmed it.`));
-  } else if (context) {
-    row.append(h('span', 'verdict-text', context));
-  }
+  const lean = v.leaning && `Leans ${VERDICT[v.leaning]?.label.toLowerCase() ?? v.leaning}, but no source confirmed it.`;
+  const text = h('span', 'verdict-text', lean || context);
+  // The sources sit inline at the end of the sentence, like a citation.
+  if (v.sources?.length) text.append(text.textContent ? ' ' : '', sourceList(v.sources));
+  if (text.childNodes.length) row.append(text);
   if (v.provisional) card.append(h('p', 'working', 'First read. Confirming with a search…'));
   if (v.repeat) card.append(h('p', 'note', 'Said before: same verdict as last time.'));
   if (v.pushback) card.append(pushbackNote(v));
   if (claim.pushbackPending) card.append(h('p', 'working', 'Re-checking with a deeper web search…'));
-  const foot = h('div', 'card-foot');
-  if (v.sources?.length) foot.append(sourceList(v.sources));
-  if (!v.provisional && !claim.pushbackPending) foot.append(cardActions(claim, { pushBack: true }));
-  if (foot.childElementCount) card.append(foot);
+  else if (!v.provisional) {
+    const foot = h('div', 'card-foot');
+    foot.append(cardActions(claim, { pushBack: true }));
+    card.append(foot);
+  }
 }
 
 // ---------- sources: one quiet chip, the details on hover ----------
@@ -543,15 +501,35 @@ function cardActions(claim, { pushBack = false } = {}) {
 // Humans get the last word: a dismissed claim leaves the page, the transcript highlight, the tallies
 // and the recap.
 function dismissClaim(claim) {
-  claim.card.remove();
   state.claims.delete(claim.id);
   const line = state.lines.get(claim.line_id);
   if (line) {
     line.marks.delete(claim.id);
     renderLine(line);
   }
-  if (!state.claims.size) $('#cards').replaceChildren(empties.cards);
   updateStats();
+  leave(claim.card).then(() => {
+    if (!state.claims.size) $('#cards').replaceChildren(empties.cards);
+  });
+}
+
+// Fades and shrinks a card a little, then closes the space it took, so the cards below slide up
+// instead of jumping. Exits are quicker than entrances; with reduced motion it just goes.
+async function leave(node) {
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const ease = 'cubic-bezier(.23, 1, .32, 1)';
+    node.style.pointerEvents = 'none';
+    await node.animate([{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(.97)' }],
+      { duration: 140, easing: ease, fill: 'forwards' }).finished;
+    const style = getComputedStyle(node);
+    const gap = parseFloat(getComputedStyle(node.parentElement).rowGap) || 0;
+    node.style.overflow = 'hidden';
+    await node.animate([
+      { height: style.height, paddingTop: style.paddingTop, paddingBottom: style.paddingBottom, borderTopWidth: style.borderTopWidth, borderBottomWidth: style.borderBottomWidth, marginBottom: '0px' },
+      { height: '0px', paddingTop: '0px', paddingBottom: '0px', borderTopWidth: '0px', borderBottomWidth: '0px', marginBottom: `${-gap}px` },
+    ], { duration: 180, easing: ease, fill: 'forwards' }).finished;
+  }
+  node.remove();
 }
 
 function openPushback(claim) {
@@ -589,7 +567,8 @@ function debateBody(claim) {
     card.append(h('p', 'no-takes', claim.perspectivesNote || 'No sourced takes found. This one is yours to weigh.'));
   } else {
     const takes = h('div', 'takes');
-    claim.perspectives.forEach((p, i) => {
+    const pinned = (p) => (state.voices.includes(p.person) ? 0 : 1); // the voices you brought in come first
+    [...claim.perspectives].sort((a, b) => pinned(a) - pinned(b)).forEach((p, i) => {
       const take = h('div', `take s-${p.stance}`);
       take.style.animationDelay = `${i * 90}ms`;
       const head = h('div', 'take-head');
@@ -613,16 +592,9 @@ function debateBody(claim) {
 function focusCard(id) {
   const claim = state.claims.get(id);
   if (!claim) return;
-  if (!matchesFilter(claim)) setFilter('all');
   claim.card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   claim.card.classList.add('focus');
   setTimeout(() => claim.card.classList.remove('focus'), 1500);
-}
-
-function setFilter(filter) {
-  state.filter = filter;
-  document.querySelectorAll('#filters button').forEach((b) => b.classList.toggle('on', b.dataset.filter === filter));
-  for (const claim of state.claims.values()) claim.card.hidden = !matchesFilter(claim);
 }
 
 // ---------- tallies ----------
@@ -631,21 +603,12 @@ function updateStats() {
   const all = [...state.claims.values()];
   const settled = all.filter((c) => c.kind === 'fact' && c.verdict && !c.verdict.provisional);
   const count = (verdict) => settled.filter((c) => c.verdict.verdict === verdict).length;
-  const times = settled
-    .filter((c) => !c.verdict.repeat && !c.verdict.pushback)
-    .map((c) => c.verdict.timings?.since_speech_ms ?? c.verdict.timings?.total_ms)
-    .filter((t) => t != null)
-    .sort((a, b) => a - b);
   const items = [
     [settled.length, 'facts checked'],
     [count('false'), 'false'],
     [count('misleading'), 'missing context'],
     [all.filter((c) => c.kind !== 'fact').length, 'contested & values'],
   ];
-  updateStageStatus();
-  if (times.length && state.config.timings_measured) {
-    items.push([`${(times[Math.floor((times.length - 1) / 2)] / 1000).toFixed(1)}s`, 'median to verdict']);
-  }
   $('#stats').replaceChildren(...items.map(([n, label]) => {
     const span = h('span');
     span.append(h('b', null, String(n)), ` ${label}`);
@@ -682,33 +645,7 @@ function renderScoreboard() {
   }));
 }
 
-// ---------- chyron, toasts, sound ----------
-
-// The lower third shows one announcement at a time, so verdicts in quick succession queue up
-// instead of overwriting each other. A backlog is shown faster so it never falls far behind.
-const ticker = { queue: [], timer: null };
-function chyron(tone, tag, title, detail, ms = 6500) {
-  ticker.queue.push({ tone, tag, title, detail, ms });
-  if (ticker.queue.length > 4) ticker.queue.splice(0, ticker.queue.length - 4);
-  if (!ticker.timer) nextChyron();
-}
-
-function nextChyron() {
-  const box = $('#chyron');
-  const item = ticker.queue.shift();
-  if (!item) {
-    ticker.timer = null;
-    box.hidden = true;
-    return;
-  }
-  const body = h('div', 'body');
-  body.append(h('div', 'title', item.title));
-  if (item.detail) body.append(h('div', 'detail', item.detail));
-  box.className = `chyron t-${item.tone}`;
-  box.replaceChildren(h('div', 'tag', item.tag), body);
-  box.hidden = false;
-  ticker.timer = setTimeout(nextChyron, ticker.queue.length ? Math.min(item.ms, 3500) : item.ms);
-}
+// ---------- toasts: only errors, and speaker-name suggestions ----------
 
 function toast(message, kind = 'notice') {
   const box = $('#toasts');
@@ -716,26 +653,6 @@ function toast(message, kind = 'notice') {
   const note = h('div', `toast ${kind}`, message);
   box.append(note);
   setTimeout(() => note.remove(), kind === 'error' ? 9000 : 5000);
-}
-
-let audioOut;
-function beep() {
-  if (!state.sound) return;
-  audioOut ??= new AudioContext();
-  const now = audioOut.currentTime;
-  [523, 392].forEach((freq, i) => {
-    const osc = audioOut.createOscillator();
-    const gain = audioOut.createGain();
-    const at = now + i * 0.13;
-    osc.type = 'triangle';
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(0.0001, at);
-    gain.gain.exponentialRampToValueAtTime(0.18, at + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.12);
-    osc.connect(gain).connect(audioOut.destination);
-    osc.start(at);
-    osc.stop(at + 0.13);
-  });
 }
 
 // ---------- status and settings ----------
@@ -762,185 +679,29 @@ function setVoices(names) {
   send({ type: 'voices', names: state.voices });
 }
 
-function hasBrowserSpeech() {
-  return Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
-}
+// ---------- the microphone ----------
 
-function buildSourceMenu() {
-  const stt = state.config.stt_name ?? 'server speech-to-text';
-  const options = [
-    ['mic', `Microphone (${stt}, tells speakers apart)`, state.config.server_stt],
-    // A clip plays without speech-to-text too; it just isn't checked.
-    ['video', state.config.server_stt ? `Video file, plays here (${stt})` : 'Video file, plays here (not checked: no speech-to-text)', true],
-    ['tab', `Browser tab or video (${stt})`, state.config.server_stt],
-    ['browser', 'Microphone (browser speech, Chrome)', hasBrowserSpeech()],
-  ];
-  $('#source').replaceChildren(...options.map(([value, label, ok]) => {
-    const option = h('option', null, ok ? label : `${label}: unavailable`, { value });
-    option.disabled = !ok;
-    return option;
-  }));
-  const mic = options.find(([value, , ok]) => ok && value === 'mic');
-  $('#source').value = (mic ?? options.find(([, , ok]) => ok) ?? options[0])[0];
-}
-
-// ---------- input sources ----------
-
-// Streams an audio source to the server as 16 kHz PCM; returns a function that stops it.
-async function pipeAudio(makeSource, { audible = false } = {}) {
+// Streams the microphone to the server as 16 kHz PCM; returns a function that stops it.
+async function startMic() {
+  if (!state.config.server_stt) throw new Error('Speech-to-text needs ASSEMBLYAI_API_KEY in .env. Add it and restart the server.');
+  const media = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
   const ctx = new AudioContext();
   await ctx.audioWorklet.addModule('/static/pcm-worklet.js');
   const pcm = new AudioWorkletNode(ctx, 'pcm16k');
   const silent = ctx.createGain();
-  silent.gain.value = 0; // keeps the worklet running without playing its input a second time
-  const source = makeSource(ctx);
-  source.connect(pcm).connect(silent).connect(ctx.destination);
-  if (audible) source.connect(ctx.destination); // a clip playing in the page still has to be heard
+  silent.gain.value = 0; // keeps the worklet running without playing the room back
+  ctx.createMediaStreamSource(media).connect(pcm).connect(silent).connect(ctx.destination);
   pcm.port.onmessage = (event) => {
     if (state.ws?.readyState === WebSocket.OPEN) state.ws.send(event.data);
   };
   await ctx.resume();
   send({ type: 'start_audio' });
+  media.getAudioTracks()[0]?.addEventListener('ended', () => stop());
   return () => {
     send({ type: 'stop_audio' });
     pcm.port.onmessage = null;
     ctx.close();
-  };
-}
-
-async function startCapture(kind) {
-  const media = kind === 'tab'
-    ? await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
-    : await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-  const tracks = media.getAudioTracks();
-  if (!tracks.length) {
     media.getTracks().forEach((t) => t.stop());
-    throw new Error('That share has no audio. Pick a browser tab and tick "Share tab audio".');
-  }
-  const stopAudio = await pipeAudio((ctx) => ctx.createMediaStreamSource(new MediaStream(tracks)));
-  if (media.getVideoTracks().length) {
-    const video = h('video', null, null, { autoplay: '', playsinline: '' });
-    video.muted = true; // the shared tab is already playing the sound
-    video.srcObject = new MediaStream(media.getVideoTracks());
-    showStage(video);
-  }
-  tracks[0].addEventListener('ended', () => stop());
-  return () => {
-    stopAudio();
-    media.getTracks().forEach((t) => t.stop());
-    hideStage();
-  };
-}
-
-// ---------- the stage: a clip playing in the page, with verdicts over it ----------
-
-function stageOn() {
-  return !$('#stage').hidden;
-}
-
-function showStage(video) {
-  $('#stage-media').replaceChildren(video);
-  $('#stage').hidden = false;
-  $('#stage').append($('#chyron')); // the lower third moves onto the picture
-  $('.transcript-pane').classList.add('staged');
-  updateStageStatus();
-}
-
-function hideStage() {
-  if (!stageOn()) return;
-  $('#stage').hidden = true;
-  $('#stage-media').replaceChildren();
-  $('.transcript-pane').append($('#chyron'));
-  $('.transcript-pane').classList.remove('staged');
-}
-
-function pendingClaims() {
-  return [...state.claims.values()]
-    .filter((c) => (c.kind === 'fact' ? !c.verdict || c.verdict.provisional : c.perspectives == null)).length;
-}
-
-function updateStageStatus() {
-  const pending = pendingClaims();
-  $('#stage-status .text').textContent = pending ? `Listening · checking ${pending}` : 'Listening';
-}
-
-function pickVideoFile() {
-  return new Promise((resolve, reject) => {
-    const input = $('#video-file');
-    input.value = '';
-    input.onchange = () => (input.files[0] ? resolve(input.files[0]) : reject(new Error('No video chosen.')));
-    input.oncancel = () => reject(new Error('No video chosen.'));
-    input.click();
-  });
-}
-
-// First press: choose a clip and cue it, paused on its first frame. Second press plays it and
-// starts checking; being a fresh click, it is always allowed to play sound.
-async function cueVideo() {
-  const file = await pickVideoFile();
-  const video = h('video', null, null, { controls: '', playsinline: '', preload: 'auto' });
-  video.src = URL.createObjectURL(file);
-  showStage(video);
-  state.cued = video;
-  $('.label', $('#start')).textContent = 'Play';
-}
-
-async function playCuedVideo() {
-  const video = state.cued;
-  state.cued = null;
-  const stopAudio = state.config.server_stt
-    ? await pipeAudio((ctx) => ctx.createMediaElementSource(video), { audible: true })
-    : () => {};
-  if (!state.config.server_stt) toast("No server speech-to-text is set up, so the clip plays but what it says isn't checked.", 'notice');
-  video.addEventListener('ended', () => {
-    if (state.running) stop();
-    showRecapWhenSettled();
-  }, { once: true });
-  await video.play();
-  return () => {
-    stopAudio();
-    video.pause();
-    URL.revokeObjectURL(video.src);
-    hideStage();
-  };
-}
-
-function uncue() {
-  if (!state.cued) return;
-  URL.revokeObjectURL(state.cued.src);
-  state.cued = null;
-  hideStage();
-  $('.label', $('#start')).textContent = 'Start';
-}
-
-function startBrowserSpeech() {
-  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const rec = new Recognition();
-  rec.continuous = true;
-  rec.interimResults = true;
-  rec.lang = 'en-US';
-  let active = true;
-  const who = () => $('#say-speaker').value.trim() || 'Me';
-  rec.onresult = (event) => {
-    let interim = '';
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const result = event.results[i];
-      if (result.isFinal) say(who(), result[0].transcript.trim());
-      else interim += result[0].transcript;
-    }
-    setCaption(who(), interim.trim());
-  };
-  rec.onerror = (event) => {
-    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-      toast('Microphone access was blocked.', 'error');
-      stop();
-    }
-  };
-  rec.onend = () => { if (active) rec.start(); }; // Chrome ends recognition after a silence; keep listening
-  rec.start();
-  return () => {
-    active = false;
-    rec.stop();
   };
 }
 
@@ -949,17 +710,8 @@ async function start() {
     stop();
     return;
   }
-  const choice = $('#source').value;
   try {
-    if (choice === 'video' && !state.cued) {
-      await cueVideo();
-      return;
-    }
-    let stopper;
-    if (choice === 'browser') stopper = startBrowserSpeech();
-    else if (choice === 'video') stopper = await playCuedVideo();
-    else stopper = await startCapture(choice);
-    state.running = { stop: stopper };
+    state.running = { stop: await startMic() };
     setRunning(true);
   } catch (err) {
     toast(err.message || String(err), 'error');
@@ -978,16 +730,9 @@ function setRunning(on) {
   const button = $('#start');
   button.classList.toggle('running', on);
   $('.label', button).textContent = on ? 'Stop' : 'Start';
-  $('#source').disabled = on;
 }
 
 // ---------- common ground: what's settled, and where people differ ----------
-
-async function showRecapWhenSettled(maxMs = 20000) {
-  const started = performance.now();
-  while (pendingClaims() && performance.now() - started < maxMs) await sleep(250);
-  if (state.claims.size) openRecap();
-}
 
 function recapWho(raw) {
   const s = speaker(raw);
@@ -1041,7 +786,6 @@ function closeRecap() {
 function clearConversation() {
   if (state.lines.size && !confirm('Clear the conversation and start over?')) return;
   if (state.running) stop();
-  uncue();
   closeRecap();
   // A new connection is a new server session: earlier lines stop being context and repeats, and
   // results still on their way for the old conversation can't land in the new one.
@@ -1056,10 +800,6 @@ function clearConversation() {
   state.speakers.clear();
   state.lastBubble = null;
   state.t0 = null;
-  ticker.queue.length = 0;
-  clearTimeout(ticker.timer);
-  ticker.timer = null;
-  $('#chyron').hidden = true;
   setCaption('', '');
   $('#transcript').replaceChildren(empties.transcript);
   $('#cards').replaceChildren(empties.cards);
@@ -1078,11 +818,14 @@ async function init() {
   empties.transcript = $('#transcript-empty');
   empties.cards = $('#cards-empty');
   state.config = await fetch('/api/config').then((r) => r.json());
-  buildSourceMenu();
   renderStatus();
   updateStats();
 
   $('#start').addEventListener('click', start);
+  $('#transcript').addEventListener('scroll', (event) => {
+    const box = event.currentTarget;
+    box.dataset.pinned = box.scrollHeight - box.scrollTop - box.clientHeight < 8;
+  }, { passive: true });
   $('#cards').addEventListener('scroll', () => { // an open source popover follows its chip
     for (const wrap of document.querySelectorAll('.sources.open')) placePopover($('.source-pop', wrap), $('.source-chip', wrap));
   }, { passive: true });
@@ -1101,17 +844,7 @@ async function init() {
     event.target.value = '';
     setVoices([...state.voices, ...added]);
   });
-  $('#filters').addEventListener('click', (event) => {
-    if (event.target.dataset.filter) setFilter(event.target.dataset.filter);
-  });
-  $('#sound').addEventListener('click', () => {
-    state.sound = !state.sound;
-    $('#sound').textContent = state.sound ? '🔔' : '🔇';
-    if (state.sound) beep();
-  });
-  $('#recap-show').addEventListener('click', openRecap);
   $('#recap-close').addEventListener('click', closeRecap);
-  $('#source').addEventListener('change', uncue);
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeRecap();
     const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);

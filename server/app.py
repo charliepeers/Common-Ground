@@ -78,8 +78,6 @@ async def settings():
         "evidence": BACKEND.evidence,
         "server_stt": stt is not None,
         "stt_name": stt[0].name if stt else None,
-        # Latency is shown only when it was measured: never for the tests' fixed answers.
-        "timings_measured": live,
     }
 
 
