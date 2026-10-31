@@ -188,10 +188,13 @@ async function openRecap(page) {
   await page.waitForTimeout(600);
   await page.screenshot({ path: `${shots}/4-lecture-perspectives.png` });
   await typeIn(page, lecture.lines.slice(1));
-  await page.waitForFunction(() => document.querySelectorAll('.takes').length === 4, null, { timeout: 15000 });
+  await page.waitForFunction(() => document.querySelectorAll('.takes').length === 3, null, { timeout: 15000 });
   check(await count('.card.k-contested') === 3 && await count('.card.k-value') === 1, '3 contested claims and 1 value');
-  check(await count('.take') === 10, `10 sourced takes (${await count('.take')})`);
-  check(await count('.take .take-row .source-chip[href^="https://"]') === 10, 'every take cites its source with the same chip as facts');
+  check(await count('.take') === 6, `6 sourced takes (${await count('.take')})`);
+  const names = await page.evaluate(() => [...document.querySelectorAll('.takes')].map((takes) => [...takes.querySelectorAll('.person')].map((p) => p.textContent)));
+  check(names.every((row) => row.length === 2 && new Set(row).size === 2), `two voices on a card, no name twice (${names.join(' / ')})`);
+  check(await count('.card.k-value .take') === 0 && (await page.locator('.card.k-value .no-takes').textContent()).includes('yours to weigh'), 'a value cites nobody: it is yours to weigh');
+  check(await count('.take .take-row .source-chip[href^="https://"]') === 6, 'every take cites its source with the same chip as facts');
   const opened = await page.evaluate(async () => {
     const take = document.querySelector('.take');
     const shown = (sel) => take.querySelector(sel).getClientRects().length > 0;

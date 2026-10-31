@@ -309,7 +309,7 @@ class LLM:
                 "quote": take["quote"].strip(" \"'“”"),
                 "source": source.as_dict(),
             })
-        return found[: config.MAX_TAKES]
+        return found
 
     async def name_speakers(self, lines: list[tuple[str, str]]) -> list[dict]:
         """Names for anonymous speaker labels, only from explicit cues, each with evidence checked verbatim."""

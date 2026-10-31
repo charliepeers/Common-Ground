@@ -33,7 +33,7 @@ Each claim is one of three kinds:
 - "contested": about how the world is or will be, but informed people genuinely disagree or the evidence isn't in: open scientific questions, interpretations, forecasts of public events ("LLMs can't really reason", "AGI is five years away", "remote work hurts productivity").
 - "value": a stand on what is right, or on what society or its institutions should do ("the state should...", "it's wrong to...", "X is the best policy").
 
-Facts get a verdict. Contested claims and values never do: the app shows how other people see them, and the listener decides.
+Facts get a verdict. Contested claims and values never do: the app shows how other people see a contested claim, and a value is left to the listener.
 
 For every claim:
 - quote: the exact words of the new line that make the claim, copied character for character (they get highlighted on screen). Take the whole claim, start to finish, never a fragment of it: when the sentence is the claim, quote the sentence.
@@ -53,9 +53,9 @@ For facts:
 
 For contested claims and values:
 - verdict "unverifiable", confidence "high", correction "", source_ids [], needs_search false.
-- explanation: the crux of the disagreement, at most 15 words.
-- query: a short topic phrase for finding other takes, like "whether LLMs can reason".
-- voices: up to 3 of the most credible people on this exact question (researchers, practitioners, officials or writers with real standing on it) who have publicly argued a different or more complicated view, and only people you're confident have. These are the voices the listener will see, so choose the strongest, not the most famous.
+- explanation: the crux of the disagreement, at most 15 words. For a value, what's at stake.
+- query: for a contested claim, a short topic phrase for finding other takes, like "whether LLMs can reason". For a value, "".
+- voices: for a value, []: it's the listener's to weigh, so nobody is cited. For a contested claim, up to 3 of the most credible people on this exact question (researchers, practitioners, officials or writers with real standing on it) who have publicly argued a different or more complicated view, and only people you're confident have. These are the voices the listener will see, so choose the strongest, not the most famous.
 
 Rules:
 - A wrong red flag in front of an audience is worse than a missed one. Say "false" only when you're sure; otherwise "unverifiable", or set needs_search.
@@ -72,6 +72,9 @@ Results: [1] Golden Gate Bridge - Wikipedia: "...suspension bridge spanning the 
 
 New line, spoken by Marco: "Honestly, nuclear is the only serious answer to climate change, and we should build way more of it."
 {{"claims":[{{"quote":"nuclear is the only serious answer to climate change, and we should build way more of it","claim":"Nuclear power is the only serious solution to climate change, so much more of it should be built.","kind":"contested","verdict":"unverifiable","confidence":"high","explanation":"Experts split on nuclear's role versus renewables and storage.","correction":"","source_ids":[],"needs_search":false,"query":"is nuclear power necessary to solve climate change","voices":["Mark Jacobson","Amory Lovins"]}}]}}
+
+New line, spoken by Ines: "It's just wrong that hospitals can sue their own patients over unpaid bills."
+{{"claims":[{{"quote":"It's just wrong that hospitals can sue their own patients over unpaid bills","claim":"It is wrong for hospitals to sue patients over unpaid bills.","kind":"value","verdict":"unverifiable","confidence":"high","explanation":"A hospital's need to collect against a patient's protection from debt.","correction":"","source_ids":[],"needs_search":false,"query":"","voices":[]}}]}}
 
 New line, spoken by Leah: "The Panama Canal opened in 1914 and it connects the Atlantic to the Indian Ocean."
 Results: [1] Panama Canal - Britannica: "...a lock-type canal that opened in 1914 and connects the Atlantic and Pacific oceans..."
@@ -111,7 +114,7 @@ Rules:
 - explanation: what the evidence says, at most 25 words. correction: for "false" or "misleading", the accurate version in at most 15 words; otherwise ""."""
 
 PERSPECTIVES_SYSTEM = f"""\
-A speaker in a live conversation just made a claim that isn't settled fact: a contested question or a value judgment. Show the listener how other credible people see it, so they can think it through themselves. You don't decide who's right.
+A speaker in a live conversation just made a claim that isn't settled fact: a contested question. Show the listener how other credible people see it, so they can think it through themselves. You don't decide who's right.
 
 You get the claim, who said it, and excerpts from web pages that may contain other people's takes. Pick up to {config.MAX_TAKES} perspectives, the strongest first, each from a different person:
 - person: who holds the view, named as in the excerpt. Only real, named people (or a named organization) whose view the excerpt itself shows. Never attribute a view to someone the excerpt doesn't quote or clearly describe.

@@ -1,7 +1,7 @@
 import asyncio
 
 from server.backends import search_query
-from server.session import Session, with_receipts
+from server.session import Session, distinct_takes, with_receipts
 
 SRC = {"title": "t", "url": "https://u.example", "published": "", "snippet": "s"}
 
@@ -86,6 +86,20 @@ async def test_contested_claims_get_perspectives_not_verdicts():
     assert kinds(events) == ["line", "claim", "debate", "perspectives"]
     assert events[2]["crux"] == "crux"
     assert backend.calls[1] == ("perspectives", "LLMs can't reason.", ("Gary Marcus",))  # the voices Claude chose
+
+
+async def test_a_value_gets_what_is_at_stake_and_no_voices():
+    value = {**fact("we should tax it", verdict="unverifiable", sources=()), "kind": "value", "explanation": "at stake"}
+    _, backend, events = await run({"we should tax it": [value]}, [("Sam", "we should tax it")])
+    assert kinds(events) == ["line", "claim", "debate"] and events[2]["crux"] == "at stake"
+    assert not any(c[0] == "perspectives" for c in backend.calls)
+
+
+def test_a_name_shows_once_even_from_different_sources():
+    take = lambda person, url: {"person": person, "stance": "disagrees", "summary": "s", "quote": "q", "source": {"url": url}}
+    takes = [take("John Carreyrou", "https://npr.org/a"), take("john carreyrou", "https://gsb.stanford.edu/b"),
+             take("Carreyrou", "https://wsj.com/c"), take("Tim Draper", "https://cnbc.com/d"), take("Holmes", "https://x.com/e")]
+    assert [t["person"] for t in distinct_takes(takes)] == ["John Carreyrou", "Tim Draper"]  # and at most two
 
 
 async def test_a_failed_perspectives_search_shows_an_empty_card_with_the_reason():

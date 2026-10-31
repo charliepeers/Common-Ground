@@ -396,10 +396,6 @@
     }
   },
   "perspectives": {
-    "The U.S. should spend much more on space exploration than on the military.": {
-      "perspectives": [],
-      "note": "Offline replay has no takes recorded for this line. Live mode searches for them."
-    },
     "Large language models lack persistent memory and cannot really reason or plan.": {
       "perspectives": [
         {
@@ -504,34 +500,6 @@
             "url": "https://www.dwarkesh.com/p/richard-sutton",
             "published": "2025-09-26",
             "snippet": "A world model would enable you to predict what would happen. They have the ability to predict what a person would say. They don't have the ability to predict what will happen."
-          }
-        }
-      ]
-    },
-    "Researchers who want human-level AI should abandon generative AI.": {
-      "perspectives": [
-        {
-          "person": "Andrej Karpathy",
-          "stance": "disagrees",
-          "summary": "Language models come first: pretraining supplies the representations everything else builds on.",
-          "quote": "You have to get the language model first, you have to get the representations first, and you have to do that by all the pre-training and all the LLM stuff.",
-          "source": {
-            "title": "Andrej Karpathy — AGI is still a decade away",
-            "url": "https://www.dwarkesh.com/p/andrej-karpathy",
-            "published": "2025-10-17",
-            "snippet": "You have to get the language model first, you have to get the representations first, and you have to do that by all the pre-training and all the LLM stuff."
-          }
-        },
-        {
-          "person": "Andrej Karpathy",
-          "stance": "complicates",
-          "summary": "Animals don't learn the world from scratch by observation either: they start heavily pre-wired.",
-          "quote": "Animal brains are nowhere near the blank slate they appear to be at birth.",
-          "source": {
-            "title": "Animals vs Ghosts",
-            "url": "https://karpathy.bearblog.dev/animals-vs-ghosts/",
-            "published": "2025-10-01",
-            "snippet": "Animal brains are nowhere near the blank slate they appear to be at birth."
           }
         }
       ]

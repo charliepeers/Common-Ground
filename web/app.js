@@ -647,11 +647,13 @@ function debateBody(claim) {
   row.append(badge(claim));
   if (claim.crux) row.append(h('span', 'verdict-text', claim.crux));
   card.append(row);
-  if (claim.perspectives == null) {
+  if (claim.kind === 'contested' && claim.perspectives == null) {
     card.append(h('p', 'working', 'Finding the most credible voices on this…'));
     return;
   }
-  if (!claim.perspectives.length) {
+  if (claim.kind === 'value') {
+    card.append(h('p', 'no-takes', 'This one is yours to weigh.'));
+  } else if (!claim.perspectives.length) {
     card.append(h('p', 'no-takes', claim.perspectivesNote || 'No sourced takes found. This one is yours to weigh.'));
   } else {
     // One row per person: a one-line summary and the source. Click a take for their exact words.

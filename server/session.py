@@ -9,6 +9,7 @@ from typing import Awaitable, Callable
 
 import anthropic
 
+from . import config
 from .segmenter import SentenceJoiner
 from .util import ms_since, normalize
 
@@ -27,6 +28,18 @@ def with_receipts(verdict: dict) -> dict:
     if verdict.get("verdict") in ("true", "false", "misleading") and not verdict.get("sources"):
         return {**verdict, "verdict": "unverifiable", "leaning": verdict["verdict"]}
     return verdict
+
+
+def distinct_takes(takes: list[dict]) -> list[dict]:
+    """At most MAX_TAKES, one per person: the same name on two pages is still one voice."""
+    picked: list[dict] = []
+    people: list[set[str]] = []
+    for take in takes:
+        person = set(normalize(take["person"]).split())
+        if not any(person <= other or other <= person for other in people):  # "Carreyrou" is "John Carreyrou"
+            picked.append(take)
+            people.append(person)
+    return picked[: config.MAX_TAKES]
 
 
 def describe(err: Exception) -> str:
@@ -178,7 +191,8 @@ class Session:
             timings = {"search_ms": data.get("search_ms", 0), "llm_ms": data.get("llm_ms", 0)}
             if claim["kind"] != "fact":
                 await self.emit({"type": "debate", "claim_id": claim["id"], "kind": claim["kind"], "crux": claim["crux"]})
-                self.spawn(self._perspectives(claim, start))
+                if claim["kind"] == "contested":  # a value is the listener's to weigh: there's nobody to cite
+                    self.spawn(self._perspectives(claim, start))
                 return
             verdict = {k: data.get(k, "") for k in ("verdict", "confidence", "explanation", "correction")}
             verdict["sources"] = data.get("sources", [])
@@ -227,15 +241,16 @@ class Session:
         except Exception as err:
             log.warning("perspectives failed for %r: %s", claim["claim"], err)
             result = {"perspectives": [], "note": describe(err)}
-        claim["perspectives"] = result["perspectives"]
+        takes = distinct_takes(result["perspectives"])
+        claim["perspectives"] = takes
         await self.emit({
             "type": "perspectives",
             "claim_id": claim["id"],
-            "perspectives": result["perspectives"],
+            "perspectives": takes,
             "note": result.get("note", ""),
             "timings": {**result.get("timings", {}), "total_ms": ms_since(start)},
         })
-        log.info("PERSPECTIVES %5d ms  %d takes on %s", ms_since(start), len(result["perspectives"]), claim["claim"])
+        log.info("PERSPECTIVES %5d ms  %d takes on %s", ms_since(start), len(takes), claim["claim"])
 
     async def pushback(self, claim_id: str, argument: str) -> None:
         """Someone disputes a verdict: re-check with a deeper web search that takes their argument into account."""

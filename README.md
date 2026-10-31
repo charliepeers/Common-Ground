@@ -6,7 +6,7 @@ One device listens to a conversation, talk or broadcast, and works through every
 |---|---|---|
 | **Fact** | Settled and checkable: dates, numbers, records, who holds an office | A small verdict (true, false, missing context, unverified), what's actually so when it isn't true, and the sites checked |
 | **Contested** | About how the world is, but informed people disagree ("LLMs can't really reason") | No verdict. How credible people see it, **in their own words**, each quote linked to its page |
-| **Value** | What should be done ("we should spend more on space than on defense") | No verdict. The other side's case, and the reminder that this one is yours |
+| **Value** | What should be done ("we should spend more on space than on defense") | No verdict and no voices. What's at stake, and the reminder that this one is yours |
 
 ## The idea
 
@@ -57,7 +57,7 @@ On screen:
 - **The transcript** is a two-line strip that stays on the latest words; scroll it up to read back.
 - **Stacks:** each speaker's cards sit in one deck, newest on top, and the deck with the latest card comes first. Older cards show as edges, tinted by their verdict, so a false claim under a true one still shows. "2 more", or a click on an edge, opens the deck; clicking a highlight brings out its card.
 - **Icons** read by how solid a claim is. A fact is one disc, filled as far as the evidence goes: whole for True or False, a slice gone for Missing context, hollow for Unverified. Contested claims and values are two positions: views that overlap, and two weights on a balance.
-- **Cards** lead with the exact words that were said. A plain fact gets a small verdict and, when it isn't true, one line on what is, with its sources cited inline as one chip (`en.wikipedia +1`); hovering the chip shows each page's title, excerpt and site logo. Contested claims and values list the other voices, one row each: who, where they stand, a one-line summary and the source. Click a row to open it to the person's exact words and the page they come from.
+- **Cards** lead with the exact words that were said. A plain fact gets a small verdict and, when it isn't true, one line on what is, with its sources cited inline as one chip (`en.wikipedia +1`); hovering the chip shows each page's title, excerpt and site logo. A value shows what's at stake and leaves it to you. A contested claim lists the other voices, one row per person: who, where they stand, a one-line summary and the source. Click a row to open it to the person's exact words and the page they come from.
 - **Push back** asks for a deeper re-check; **Dismiss** removes a card, its highlight and its place in the tally.
 - **Clear** (on the transcript panel) starts over: an empty page and a fresh session on the server, so nothing from the old conversation carries into the new one.
 - **Keys:** S opens the recap ("Common ground": the facts checked, false first; the open questions with who stands where; the values that are yours to weigh). P toggles presentation mode. Esc closes the recap.
@@ -79,7 +79,8 @@ flowchart LR
   X --> C[One streamed LLM call, Claude Sonnet 5.5 by default: find, sort and judge the claims]
   C -->|fact with sources| V[Verdict]
   C -->|fact the search missed| E[Targeted search, then verdict] --> V
-  C -->|contested or value| P[Search the most credible voices, and X] --> Q[Claude picks takes; quotes checked verbatim] --> W[Perspectives]
+  C -->|value| Y[What's at stake, yours to weigh]
+  C -->|contested| P[Search the most credible voices, and X] --> Q[Claude picks takes; quotes checked verbatim] --> W[Perspectives]
   V --> UI[Browser]
   W --> UI
   UI -->|push back| D[Claude searches the web itself] --> V
@@ -96,13 +97,13 @@ The pieces:
    - shows the line;
    - searches Exa with the raw sentence and makes **one** streamed Claude call that finds the claims, sorts them into lanes and judges the facts;
    - escalates facts the first search didn't cover;
-   - fetches perspectives for contested claims and values.
+   - fetches perspectives for contested claims.
 
    It also handles push-back and suggests names for anonymous speakers.
 5. **Claude layer (`server/llm.py`, `prompts.py`, `schemas.py`).** Each role has its own model (see "Model and vendor choices"); all calls use JSON-schema outputs. Push-back uses Claude's own web search tool, with a strict `submit_verdict` tool for the answer.
 6. **Search (`server/search.py`).** Exa `lite`, Exa's type for real-time and voice use.
    - Facts: 10 results per search, with an `objective` that tells Exa to rank primary and authoritative sources first (official pages, data, research, reference works, established news). A verdict cites its best source. A false or misleading one can add a second from another site, when it adds something. `MAX_SOURCES` sets the limit, 2 by default, and code enforces it along with one reference per site.
-   - Contested claims and values: nobody picks the voices by hand. When Claude sorts a claim it names up to three of the most credible people on that exact question who have publicly argued a different view, and the search looks for them, plus X itself on the topic, so takes come from people's own posts as well as the open web. X posts feed this lane, not verdicts: a post saying something doesn't make it true.
+   - Contested claims: nobody picks the voices by hand. When Claude sorts a claim it names up to three of the most credible people on that exact question who have publicly argued a different view, and the search looks for them, plus X itself on the topic, so takes come from people's own posts as well as the open web. X posts feed this lane, not verdicts: a post saying something doesn't make it true.
    - Each request sends only what `lite` accepts, and the server logs any `warnings` Exa returns about ignored fields.
 
 ### When does a statement get sent?
@@ -172,6 +173,8 @@ The benchmark starts from text, so speech-to-text time is not included. Speech-t
 - **No receipts, no red.** A true, false or misleading verdict must cite a page the search actually returned. Otherwise it shows as unverified, along with which way it was leaning.
 - **A wrong red flag is worse than a missed one.** The prompts say so, and the benchmark counts false alarms separately.
 - **Flag rarely.** A card has to earn its place: something that looks false or misleading, a specific public claim the conversation leans on, or a real public dispute. Common knowledge, private facts, tastes and plans get nothing.
+- **A value is yours.** It gets what's at stake, with no voices and no citations: there's no fact to settle, and who agrees doesn't change that.
+- **One voice per person.** A contested claim shows `MAX_TAKES` voices, 2 by default, and the same name from two pages counts once.
 - **One sentence, one card.** Never split a sentence into several claims. A claim's quote must come from the line being checked, and the same claim never gets a second card, in code as well as in the prompts.
 - **Quotes are verbatim or dropped.** Every perspective quote is checked in code against the text of its page.
 - **Contested isn't false.** Stances are color-coded in hues the verdicts don't use (pink for disagrees, yellow for complicates, gray for agrees), so a disagreeing take never reads as a red "false".
