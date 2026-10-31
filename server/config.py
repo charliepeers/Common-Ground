@@ -35,9 +35,3 @@ DEEPGRAM_MODEL = os.getenv("DEEPGRAM_MODEL", "nova-3")
 STT_PROVIDER = os.getenv("STT_PROVIDER") or ("assemblyai" if ASSEMBLYAI_API_KEY else "deepgram" if DEEPGRAM_API_KEY else "")
 
 WEB_DIR = ROOT / "web"
-DEMO_DIR = ROOT / "demo"
-
-# OFFLINE=1 serves the hand-written test data in tests/fixtures.json instead of calling any API, so the
-# page can be worked on without keys. The page labels it as test data and shows no timings.
-OFFLINE = os.getenv("OFFLINE", "") == "1"
-FIXTURES = Path(os.getenv("OFFLINE_FIXTURES") or ROOT / "tests" / "fixtures.json")

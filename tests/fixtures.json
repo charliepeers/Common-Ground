@@ -1,5 +1,76 @@
 {
-  "_about": "TEST DATA for OFFLINE=1 and tests/e2e.cjs, labeled as such on screen. Hand-written, not model output, and it carries no timings. The sources and quoted snippets are real pages.",
+  "_about": "TEST DATA for the browser test, served only by tests/serve.py and labeled as such on screen; the app never serves it. Hand-written answers, not model output, with no timings. The sources and quoted snippets are real pages. `conversations` are the lines tests/e2e.cjs types in; the AI-lecture lines are verbatim Yann LeCun quotes (see its `about`).",
+  "conversations": [
+    {
+      "id": "study-group",
+      "title": "Study group (fact-check)",
+      "voices": [],
+      "lines": [
+        {
+          "speaker": "Alex",
+          "text": "Okay, quick sanity check for the civics slides. Joe Biden is the 47th president, right?"
+        },
+        {
+          "speaker": "Sam",
+          "text": "No, Biden was the 46th. Trump is the 47th, and he was the 45th too."
+        },
+        {
+          "speaker": "Jordan",
+          "text": "Cool. For the intro I want the fun fact that the Great Wall of China is the only man-made structure you can see from space."
+        },
+        {
+          "speaker": "Alex",
+          "text": "Also, we only use ten percent of our brains, so the learning slide should say that."
+        },
+        {
+          "speaker": "Sam",
+          "text": "Honestly, I think we should spend way more on space exploration than on the military."
+        },
+        {
+          "speaker": "Jordan",
+          "text": "The first Moon landing was in 1969, so that date on slide four is right."
+        },
+        {
+          "speaker": "Alex",
+          "text": "And lightning never strikes the same place twice, so the weather slide is fine."
+        },
+        {
+          "speaker": "Sam",
+          "text": "Our school's robotics team won the state championship last year, let's mention that."
+        },
+        {
+          "speaker": "Jordan",
+          "text": "I think this is going to be a really good presentation."
+        }
+      ]
+    },
+    {
+      "id": "ai-lecture",
+      "title": "AI lecture: LeCun on LLMs (perspectives)",
+      "about": "Verbatim Yann LeCun quotes (Lex Fridman Podcast #416, 2024, and a 2023 post on X), played as a lecture.",
+      "voices": [
+        "Andrej Karpathy"
+      ],
+      "lines": [
+        {
+          "speaker": "Yann LeCun",
+          "text": "They don't really have persistent memory. They can't really reason and they certainly can't plan."
+        },
+        {
+          "speaker": "Yann LeCun",
+          "text": "The type of reasoning that takes place in LLM is very, very primitive, and the reason you can tell is primitive is because the amount of computation that is spent per token produced is constant."
+        },
+        {
+          "speaker": "Yann LeCun",
+          "text": "A house cat has way more common sense and understanding of the world than any LLM."
+        },
+        {
+          "speaker": "Yann LeCun",
+          "text": "If you're really interested in human level AI, abandon the idea of generative AI."
+        }
+      ]
+    }
+  ],
   "lines": {
     "Okay, quick sanity check for the civics slides. Joe Biden is the 47th president, right?": {
       "claims": [

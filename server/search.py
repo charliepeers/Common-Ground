@@ -29,8 +29,14 @@ def domain(url: str) -> str:
 class ExaSearch:
     """POST https://api.exa.ai/search.
 
-    The default type, "lite", is Exa's low-latency search (launched 2026-10-19, replacing
-    "instant" and "fast"). If an account rejects it, we fall back to "auto" once and stay there.
+    The default type, "lite", is Exa's search for real-time and voice experiences. Exa's changelog
+    (2026-10-19) made "fast" and "instant" legacy in its favor; lite answers from Exa's index and never
+    fetches a page live. If an account rejects it, we fall back to "auto" once and stay there.
+
+    Exa recommends sending only the query and bare highlights. The other fields here are deliberate:
+    numResults and highlight length bound how much text goes into each per-sentence Claude prompt
+    (prompt size is latency), and includeDomains is only used for the X search the perspectives lane
+    asks for. All of them are on lite's accepted list; lite rejects anything else with a 400.
     """
 
     URL = "https://api.exa.ai/search"
@@ -61,7 +67,10 @@ class ExaSearch:
             self.search_type = "auto"
             return await self.search(query, num_results, include_domains, highlight_chars)
         r.raise_for_status()
-        return [_source(item, highlight_chars) for item in r.json().get("results", []) if item.get("url")]
+        data = r.json()
+        for warning in data.get("warnings") or []:  # request fields Exa ignored, and what to send instead
+            log.warning("Exa: %s", warning)
+        return [_source(item, highlight_chars) for item in data.get("results", []) if item.get("url")]
 
 
 def _source(item: dict, max_chars: int) -> Source:

@@ -9,7 +9,6 @@ from typing import Awaitable, Callable
 
 import anthropic
 
-from .backends import NotRecorded
 from .util import ms_since, normalize
 
 log = logging.getLogger("cg.session")
@@ -31,7 +30,9 @@ def with_receipts(verdict: dict) -> dict:
 
 def describe(err: Exception) -> str:
     if isinstance(err, anthropic.AuthenticationError):
-        return "Claude rejected the API key: set ANTHROPIC_API_KEY in .env, or run with OFFLINE=1 for the recorded demo."
+        return "Claude rejected the API key: set ANTHROPIC_API_KEY in .env."
+    if "authentication method" in str(err):  # the SDK found no key at all
+        return "No Claude API key: add ANTHROPIC_API_KEY to .env and restart the server."
     return f"{type(err).__name__}: {err}"
 
 
@@ -166,11 +167,6 @@ class Session:
         try:
             async with self._limit:
                 await self.backend.check(line["text"], self.who(line["speaker"]), named, list(self.voices), on_early, on_done)
-        except NotRecorded:
-            await self.emit({
-                "type": "notice",
-                "message": "The offline test data only covers the demo scripts. Add API keys to check anything else.",
-            })
         except Exception as err:
             log.exception("check failed")
             await self.emit({"type": "error", "message": f"Couldn't check that line. {describe(err)}"})

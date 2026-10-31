@@ -1,14 +1,42 @@
-// Drives the real page against a server replaying the UI test data, and checks what a viewer would see.
-//   OFFLINE=1 .venv/bin/uvicorn server.app:app --port 8765 &
+// Drives the real page against the test server, which answers from fixed test data, and checks what a viewer would see.
+//   .venv/bin/python -m tests.serve 8765 &
 //   node tests/e2e.cjs [http://localhost:8765] [screenshot dir, default tests/screenshots]
 const fs = require('fs');
+const path = require('path');
 const { chromium } = require('playwright');
 
 const base = process.argv[2] || 'http://localhost:8765';
 const shots = process.argv[3] || 'tests/screenshots';
 fs.mkdirSync(shots, { recursive: true });
+const { conversations } = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures.json'), 'utf8'));
+const conversation = (id) => conversations.find((c) => c.id === id);
 const problems = [];
 const check = (ok, message) => { if (!ok) problems.push(message); console.log(`${ok ? 'ok  ' : 'FAIL'} ${message}`); };
+
+// Types lines in by hand, the way anyone can check a statement without speech-to-text.
+async function typeIn(page, lines, voices = []) {
+  for (const name of voices) {
+    await page.fill('#voice-input', name);
+    await page.press('#voice-input', 'Enter');
+  }
+  for (const line of lines) {
+    await page.fill('#say-speaker', line.speaker);
+    await page.fill('#say-text', line.text);
+    await page.press('#say-text', 'Enter');
+    await page.waitForTimeout(250);
+  }
+}
+
+async function settle(page, bubbles) {
+  await page.waitForFunction((n) => document.querySelectorAll('.bubble').length >= n, bubbles, { timeout: 15000 });
+  await page.waitForFunction(() => !document.querySelector('.card.checking, .card.provisional'), null, { timeout: 15000 });
+  await page.waitForTimeout(800);
+}
+
+async function openRecap(page) {
+  await page.click('#recap-show');
+  await page.waitForSelector('#recap:not([hidden])', { timeout: 5000 });
+}
 
 (async () => {
   const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
@@ -16,27 +44,26 @@ const check = (ok, message) => { if (!ok) problems.push(message); console.log(`$
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   page.on('pageerror', (err) => problems.push(`page error: ${err.message}`));
   page.on('console', (msg) => { if (msg.type() === 'error') problems.push(`console error: ${msg.text()}`); });
+  const count = (sel) => page.locator(sel).count();
 
-  await page.goto(`${base}/?speed=3`);
+  await page.goto(base);
   await page.waitForSelector('.pill.live', { timeout: 10000 });
   check(await page.locator('.pill.warn', { hasText: 'test data, not model output' }).count() === 1, 'test data is labeled as such');
   check(await page.locator('#chyron').isHidden(), 'no empty lower third before the first verdict');
   const options = await page.locator('#source option').allTextContents();
-  check(options[0].includes('Study group') && options[1].includes('AI lecture'), `demo sources listed: ${options.slice(0, 2).join(' | ')}`);
+  check(options.length === 4 && !options.some((o) => /demo|script|replay|test/i.test(o)), `only real sources are offered: ${options.join(' | ')}`);
 
-  // Demo 1: study group fact-check
-  await page.selectOption('#source', 'demo:study-group');
-  await page.click('#start');
+  // Facts: a study-group conversation
+  const study = conversation('study-group');
+  await typeIn(page, study.lines.slice(0, 1), study.voices);
   await page.waitForSelector('.card.v-false', { timeout: 15000 });
   await page.waitForSelector('#chyron:not([hidden])', { timeout: 5000 });
-  await page.screenshot({ path: `${shots}/1-first-false-claim.png` });
   check((await page.locator('#chyron .tag').textContent()).includes('False'), 'chyron announces the false claim');
-  await page.waitForFunction(() => document.querySelector('#start .label').textContent === 'Start', null, { timeout: 60000 });
-  await page.waitForFunction(() => !document.querySelector('.card.checking, .card.provisional'), null, { timeout: 15000 });
-  await page.waitForTimeout(800);
+  await page.screenshot({ path: `${shots}/1-first-false-claim.png` });
+  await typeIn(page, study.lines.slice(1));
+  await settle(page, study.lines.length);
 
-  const count = (sel) => page.locator(sel).count();
-  await page.waitForSelector('#recap:not([hidden])', { timeout: 15000 });
+  await openRecap(page);
   check(await count('#recap-facts li') === 8, `recap lists the 8 checked facts (${await count('#recap-facts li')})`);
   check((await page.locator('#recap-facts li .tag').first().textContent()).includes('False'), 'recap leads with what was false');
   check(await count('#recap #recap-values li') === 1 && await count('#recap #recap-questions li.recap-empty') === 1, 'recap: one value, no open questions');
@@ -81,24 +108,24 @@ const check = (ok, message) => { if (!ok) problems.push(message); console.log(`$
   check(await page.locator('.card:not([hidden])').count() === 1, 'values filter shows only the value card');
   await page.click('#filters [data-filter="all"]');
 
-  // Demo 2: AI lecture with perspectives
+  // Worldviews: LeCun's own words, with Karpathy pinned as a voice
   await page.reload();
   await page.waitForSelector('.pill.live');
-  await page.selectOption('#source', 'demo:ai-lecture');
-  await page.click('#start');
+  const lecture = conversation('ai-lecture');
+  await typeIn(page, lecture.lines.slice(0, 1), lecture.voices);
+  check(await page.locator('#voice-chips .chip', { hasText: 'Andrej Karpathy' }).count() === 1, 'a pinned voice shows as a chip');
   await page.waitForSelector('.take', { timeout: 20000 });
-  check(await page.locator('#voice-chips .chip', { hasText: 'Andrej Karpathy' }).count() === 1, 'demo pins Karpathy as a voice');
   await page.waitForSelector('#chyron:not([hidden])', { timeout: 5000 });
   check((await page.locator('#chyron .tag').textContent()).includes('Karpathy'), 'chyron leads with the pinned voice');
   await page.screenshot({ path: `${shots}/4-lecture-perspectives.png` });
-  await page.waitForFunction(() => document.querySelector('#start .label').textContent === 'Start', null, { timeout: 60000 });
+  await typeIn(page, lecture.lines.slice(1));
   await page.waitForFunction(() => document.querySelectorAll('.takes').length === 4, null, { timeout: 15000 });
   check(await count('.card.k-contested') === 3 && await count('.card.k-value') === 1, '3 contested claims and 1 value');
   check(await count('.take') === 10, `10 sourced takes (${await count('.take')})`);
   check(await count('.take-source[href^="https://"]') === 10, 'every take links to its source');
   check(await count('.take.s-disagrees') >= 1 && await count('.take.s-agrees') >= 1, 'takes span agree and disagree');
   check(await count('mark.m-contested') === 3, 'contested claims are highlighted in the transcript');
-  await page.waitForSelector('#recap:not([hidden])', { timeout: 15000 });
+  await openRecap(page);
   check(await count('#recap #recap-questions li') === 3 && await count('#recap #recap-questions .voice') >= 6, 'recap shows the open questions and who stands where');
   await page.waitForTimeout(900);
   await page.screenshot({ path: `${shots}/5b-lecture-recap.png` });
@@ -117,8 +144,7 @@ const check = (ok, message) => { if (!ok) problems.push(message); console.log(`$
     await page.click('#start');
     await page.waitForFunction(() => document.querySelector('#stage video').currentTime > 0.5, null, { timeout: 8000 });
     check(true, 'the clip plays on the stage');
-    await page.fill('#say-text', 'Okay, quick sanity check for the civics slides. Joe Biden is the 47th president, right?');
-    await page.press('#say-text', 'Enter');
+    await typeIn(page, study.lines.slice(0, 1));
     await page.waitForSelector('#stage #chyron:not([hidden])', { timeout: 15000 });
     check((await page.locator('#stage #chyron .tag').textContent()).includes('False'), 'the verdict appears over the video');
     await page.waitForTimeout(700);
@@ -137,12 +163,13 @@ const check = (ok, message) => { if (!ok) problems.push(message); console.log(`$
   check(overflow <= 0, `no horizontal scroll on a phone (${overflow}px)`);
   await page.screenshot({ path: `${shots}/7-phone.png`, fullPage: false });
 
-  // Typed input outside the test data gets an honest notice offline
+  // A line the test data doesn't cover gets an error, never a made-up answer
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.fill('#say-text', 'The Eiffel Tower is in Rome.');
-  await page.press('#say-text', 'Enter');
-  await page.waitForSelector('.toast.notice', { timeout: 5000 });
-  check(true, 'a typed line outside the test data produces a notice');
+  const cards = await count('.card');
+  await typeIn(page, [{ speaker: 'Me', text: 'The Eiffel Tower is in Rome.' }]);
+  await page.waitForSelector('.toast.error', { timeout: 5000 });
+  await page.waitForTimeout(300);
+  check(await count('.card') === cards, 'a line outside the test data gets an error and no card');
 
   await browser.close();
   console.log(problems.length ? `\n${problems.length} problem(s):\n- ${problems.join('\n- ')}` : '\nall checks passed');

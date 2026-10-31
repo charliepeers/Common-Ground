@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import time
 from contextlib import asynccontextmanager
 
@@ -15,7 +16,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import config
-from .backends import LiveBackend, OfflineBackend
+from .backends import LiveBackend
 from .llm import LLM
 from .search import ExaSearch
 from .segmenter import Segmenter
@@ -27,8 +28,6 @@ log = logging.getLogger("cg.app")
 
 
 def make_backend():
-    if config.OFFLINE:
-        return OfflineBackend.load(config.FIXTURES)
     search = ExaSearch(config.EXA_API_KEY, config.EXA_SEARCH_TYPE) if config.EXA_API_KEY else None
     return LiveBackend(LLM(), search)
 
@@ -39,8 +38,23 @@ BACKEND = make_backend()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if isinstance(BACKEND, LiveBackend):
+        for warning in missing_keys():
+            log.warning(warning)
         asyncio.create_task(BACKEND.warm_up())
     yield
+
+
+def missing_keys() -> list[str]:
+    """What won't work with the keys in .env, said once at startup."""
+    missing = []
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        missing.append("ANTHROPIC_API_KEY is not set in .env: nothing can be checked.")
+    if not config.EXA_API_KEY:
+        missing.append("EXA_API_KEY is not set in .env: facts use Claude's web search, and the takes are off.")
+    if provider() is None:
+        missing.append("No speech-to-text key in .env (ASSEMBLYAI_API_KEY or DEEPGRAM_API_KEY): "
+                       "a video, a tab or the microphone can't be checked.")
+    return missing
 
 
 app = FastAPI(title="Common Ground", lifespan=lifespan)
@@ -59,19 +73,14 @@ async def settings():
     return {
         "model": config.LIVE_MODEL,
         "pushback_model": config.PUSHBACK_MODEL,
-        "offline": config.OFFLINE,
+        "test_data": not live,  # only under tests/serve.py, which swaps in fixed answers
         "fast_mode": live and BACKEND.llm.uses_fast(config.LIVE_MODEL),
         "evidence": BACKEND.evidence,
         "server_stt": stt is not None,
         "stt_name": stt[0].name if stt else None,
-        # Latency is shown only when it was measured, which means live mode: the test data has no timings.
+        # Latency is shown only when it was measured: never for the tests' fixed answers.
         "timings_measured": live,
     }
-
-
-@app.get("/api/demos")
-async def demos():
-    return json.loads((config.DEMO_DIR / "script.json").read_text())
 
 
 @app.websocket("/ws")

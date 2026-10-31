@@ -1,27 +1,21 @@
-"""Where answers come from. LiveBackend calls Exa and Claude; OfflineBackend serves the test data."""
+"""Where answers come from: Exa search and Claude."""
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import re
 import time
-from pathlib import Path
 
 from . import config
 from .llm import LLM
 from .search import ExaSearch, Source
-from .util import ms_since, normalize
+from .util import ms_since
 
 log = logging.getLogger("cg.backend")
 
 X_DOMAINS = ["x.com", "twitter.com"]
 MAX_PERSPECTIVE_SOURCES = 12
 _REFERENCE = re.compile(r"\b(he|she|they|it|his|her|their|them|this|that|these|those)\b", re.I)
-
-
-class NotRecorded(Exception):
-    """The offline test data has no answer for this input."""
 
 
 def search_query(line: str, context: list[tuple[str, str]]) -> str:
@@ -111,46 +105,3 @@ class LiveBackend:
         if self.search:
             jobs.append(self.search.search("warm up", 1))
         await asyncio.gather(*jobs, return_exceptions=True)
-
-
-class OfflineBackend:
-    """Serves the hand-written test data in tests/fixtures.json, for working on the page without API keys."""
-
-    evidence = "test-data"
-
-    def __init__(self, data: dict):
-        self.lines = {normalize(k): v for k, v in data.get("lines", {}).items()}
-        self.escalations = {normalize(k): v for k, v in data.get("escalations", {}).items()}
-        self.pushbacks = {normalize(k): v for k, v in data.get("pushbacks", {}).items()}
-        self.takes = {normalize(k): v for k, v in data.get("perspectives", {}).items()}
-
-    @classmethod
-    def load(cls, path: Path) -> "OfflineBackend":
-        return cls(json.loads(Path(path).read_text()))
-
-    async def check(self, line, speaker, context, voices, on_early, on_done) -> dict:
-        entry = self.lines.get(normalize(line))
-        if entry is None:
-            raise NotRecorded(line)
-        for i, claim in enumerate(entry.get("claims", [])):
-            await on_early(i, {k: claim[k] for k in ("quote", "claim", "kind")})
-            await on_done(i, claim)
-        return {}
-
-    def _lookup(self, table: dict, key: str) -> dict:
-        found = table.get(normalize(key))
-        if found is None:
-            raise NotRecorded(key)
-        return json.loads(json.dumps(found))  # a copy, so callers can't edit the test data
-
-    async def escalate(self, claim: dict) -> dict:
-        return {**self._lookup(self.escalations, claim["claim"]), "method": self.evidence}
-
-    async def pushback(self, claim: dict, verdict: dict, argument: str) -> dict:
-        return {**self._lookup(self.pushbacks, claim["claim"]), "method": self.evidence}
-
-    async def perspectives(self, claim: dict, voices: list[str]) -> dict:
-        return self._lookup(self.takes, claim["claim"])
-
-    async def name_speakers(self, lines: list[tuple[str, str]]) -> list[dict]:
-        return []  # the demo scripts already use real names

@@ -1,6 +1,6 @@
 import asyncio
 
-from server.backends import NotRecorded, search_query
+from server.backends import search_query
 from server.session import Session, with_receipts
 
 SRC = {"title": "t", "url": "https://u.example", "published": "", "snippet": "s"}
@@ -22,7 +22,7 @@ class FakeBackend:
     async def check(self, line, speaker, context, voices, on_early, on_done):
         self.calls.append(("check", line, context, voices))
         if line not in self.lines:
-            raise NotRecorded(line)
+            raise LookupError(line)
         for i, claim in enumerate(self.lines[line]):
             await on_early(i, {k: claim[k] for k in ("quote", "claim", "kind")})
             await on_done(i, {**claim, "search_ms": 5, "llm_ms": 9})
@@ -100,9 +100,9 @@ async def test_context_is_the_previous_lines():
     assert backend.calls[1][2] == [("A", "a")]
 
 
-async def test_unrecorded_lines_produce_a_notice():
+async def test_a_failed_check_shows_an_error_and_no_claims():
     _, _, events = await run({}, [("A", "hello")])
-    assert kinds(events) == ["line", "notice"]
+    assert kinds(events) == ["line", "error"]
 
 
 async def test_pushback_records_what_changed():

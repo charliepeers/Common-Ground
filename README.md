@@ -27,7 +27,7 @@ Fact-checking is the easy part. The interesting moment is when you're listening 
   - The Exa, AssemblyAI and Deepgram formats are checked against their official API references only.
 - **Tests.**
   - Python: segmenter rules, streaming JSON reader, receipts rule, verbatim-quote check, speaker naming, push-back, fast-mode fallback.
-  - Browser: `tests/e2e.cjs`, which drives the page on **hand-written test data** in `tests/fixtures.json`, labeled as such on screen. With `CLIP` set it also plays a video on the stage; so far only an 8-second clip, and without speech-to-text.
+  - Browser: `tests/e2e.cjs` drives the page against `tests/serve.py`, a test server that answers from the **fixed, hand-written data** in `tests/fixtures.json` and labels it as test data on screen. The app itself never serves that data. With `CLIP` set, the test also plays a video on the stage; so far only an 8-second clip, without speech-to-text.
 - **The first thing to do with keys** is measure. See "Measuring speed and accuracy".
 
 ## Run it
@@ -40,7 +40,13 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Fill in the keys. `ANTHROPIC_API_KEY` is required, and Exa plus one speech-to-text key are strongly recommended. Then start the server:
+Fill in the keys in `.env` (git-ignored, so they can't be committed):
+
+- `ANTHROPIC_API_KEY` (line 2): Claude. Required.
+- `EXA_API_KEY` (line 6): search, and the takes from other voices. Without it, facts go to Claude's own web search (slower) and the takes are off.
+- `ASSEMBLYAI_API_KEY` (line 10), or `DEEPGRAM_API_KEY` (line 11): speech-to-text for a video file, a shared tab or the microphone. Without one, only Chrome's browser speech works.
+
+Then start the server:
 
 ```bash
 .venv/bin/uvicorn server.app:app --port 8000
@@ -52,7 +58,7 @@ Open http://localhost:8000 and pick a source:
 - **Microphone (AssemblyAI or Deepgram):** one device for the whole room; voices are separated by diarization (see "Telling voices apart").
 - **Browser tab or video:** a YouTube talk, a livestream, a call. In Chrome, pick the tab and tick **Share tab audio**. The shared tab's picture shows on the stage.
 - **Browser speech (Chrome):** needs no speech key, but has no speaker labels and no punctuation.
-- **Demo scripts:** a scripted conversation typed out and sent through the same live pipeline. The AI-lecture script is verbatim Yann LeCun quotes from Lex Fridman Podcast #416 (2024) and a 2023 post on X.
+- **Typing a line** into the box under the transcript checks it the same way, with no speech-to-text.
 
 On screen:
 
@@ -64,12 +70,6 @@ On screen:
 
 ```bash
 cloudflared tunnel --url http://localhost:8000
-```
-
-**No keys yet?** The page runs on the hand-written test data in `tests/fixtures.json`. Only the demo scripts have answers there, and the page labels it as test data:
-
-```bash
-OFFLINE=1 .venv/bin/uvicorn server.app:app --port 8000
 ```
 
 ## Architecture
@@ -104,7 +104,7 @@ The pieces:
 
    It also handles push-back and suggests names for anonymous speakers.
 5. **Claude layer (`server/llm.py`, `prompts.py`, `schemas.py`).** Each role has its own model (see "Model and vendor choices"); all calls use JSON-schema outputs. Push-back uses Claude's own web search tool, with a strict `submit_verdict` tool for the answer.
-6. **Search (`server/search.py`).** Exa `lite`.
+6. **Search (`server/search.py`).** Exa `lite`, Exa's type for real-time and voice use. Each request sends only what `lite` accepts, and the server logs any `warnings` Exa returns about ignored fields.
 
 ### When does a statement get sent?
 
@@ -317,12 +317,11 @@ On the independent [Pipecat streaming benchmark](https://github.com/pipecat-ai/s
 | `server/segmenter.py` | When a statement is complete enough to check |
 | `server/llm.py`, `prompts.py`, `schemas.py` | Every Claude call, its prompt and its JSON schema |
 | `server/jsonstream.py` | Reads claims out of the streaming answer as they complete |
-| `server/search.py`, `backends.py` | Exa; the live backend, and the offline one that serves the test data |
+| `server/search.py`, `backends.py` | Exa, and the backend that runs every check |
 | `server/stt.py` | AssemblyAI and Deepgram streaming relays |
 | `web/` | The page: `app.js`, `styles.css`, `pcm-worklet.js` |
-| `demo/script.json` | Demo scripts (inputs only) |
 | `bench/` | 37 labeled statements and the benchmark runner |
-| `tests/` | Python tests, real-SDK wire tests, the browser test and its labeled test data |
+| `tests/` | Python tests, real-SDK wire tests, the browser test, its test server (`serve.py`) and its fixed test data |
 
 ## Tests
 
@@ -330,10 +329,10 @@ On the independent [Pipecat streaming benchmark](https://github.com/pipecat-ai/s
 .venv/bin/python -m pytest
 ```
 
-For the browser test, start a server on the test data:
+For the browser test, start the test server, which answers from the fixed data in `tests/fixtures.json`:
 
 ```bash
-OFFLINE=1 .venv/bin/uvicorn server.app:app --port 8765
+.venv/bin/python -m tests.serve 8765
 ```
 
 Then run the script. It needs Playwright with Chromium (`npm install playwright` and `npx playwright install chromium`), and `CLIP` adds the video-stage checks:

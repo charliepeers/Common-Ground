@@ -1,4 +1,4 @@
-"""Prompts for every Claude call. The examples avoid every claim in demo/ and bench/."""
+"""Prompts for every Claude call. The examples avoid every claim in bench/ and tests/."""
 from __future__ import annotations
 
 from .search import Source, domain

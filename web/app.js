@@ -1,4 +1,4 @@
-// Common Ground in the browser: capture speech (or play a demo), stream it to the server, and draw
+// Common Ground in the browser: capture speech, stream it to the server, and draw
 // the transcript, verdicts and perspectives as events arrive. No build step, no framework.
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -24,7 +24,6 @@ const MODEL_NAMES = { 'claude-sonnet-5-5': 'Claude Sonnet 5.5', 'claude-opus-5-5
 
 const state = {
   config: {},
-  demos: [],
   ws: null,
   connected: false,
   lines: new Map(),
@@ -633,11 +632,11 @@ function renderStatus() {
   const c = state.config;
   const pill = (text, cls = '') => h('span', `pill ${cls}`, text);
   const pills = [];
-  if (c.offline) pills.push(pill('Test data, not model output', 'warn'));
+  if (c.test_data) pills.push(pill('Test data, not model output', 'warn')); // only under tests/serve.py
   pills.push(pill(`${MODEL_NAMES[c.model] ?? c.model ?? '…'}${c.fast_mode ? ' · fast' : ''}`));
   const evidence = { exa: 'Exa search', 'claude-web-search': 'Claude web search' }[c.evidence];
   if (evidence) pills.push(pill(`Evidence: ${evidence}`));
-  const speech = c.offline ? 'Speech: demo scripts' : c.server_stt ? `Speech: ${c.stt_name ?? 'server'}` : 'Speech: browser only';
+  const speech = c.server_stt ? `Speech: ${c.stt_name ?? 'server'}` : 'Speech: browser only';
   pills.push(pill(speech, c.server_stt ? '' : 'off'));
   pills.push(pill(state.connected ? '● Connected' : '○ Reconnecting', state.connected ? 'live' : 'warn'));
   $('#status').replaceChildren(...pills);
@@ -664,14 +663,14 @@ function hasBrowserSpeech() {
 }
 
 function buildSourceMenu() {
-  const live = !state.config.offline;
-  const options = state.demos.map((d) => [`demo:${d.id}`, `▶ Demo: ${d.title}`, true]);
   const stt = state.config.stt_name ?? 'server speech-to-text';
-  options.push(['mic', `Microphone (${stt}, tells speakers apart)`, live && state.config.server_stt]);
-  // A clip plays without speech-to-text too; it just isn't checked.
-  options.push(['video', state.config.server_stt ? `Video file, plays here (${stt})` : 'Video file, plays here (not checked: no speech-to-text)', true]);
-  options.push(['tab', `Browser tab or video (${stt})`, live && state.config.server_stt]);
-  options.push(['browser', 'Microphone (browser speech, Chrome)', live && hasBrowserSpeech()]);
+  const options = [
+    ['mic', `Microphone (${stt}, tells speakers apart)`, state.config.server_stt],
+    // A clip plays without speech-to-text too; it just isn't checked.
+    ['video', state.config.server_stt ? `Video file, plays here (${stt})` : 'Video file, plays here (not checked: no speech-to-text)', true],
+    ['tab', `Browser tab or video (${stt})`, state.config.server_stt],
+    ['browser', 'Microphone (browser speech, Chrome)', hasBrowserSpeech()],
+  ];
   $('#source').replaceChildren(...options.map(([value, label, ok]) => {
     const option = h('option', null, ok ? label : `${label}: unavailable`, { value });
     option.disabled = !ok;
@@ -785,7 +784,7 @@ async function cueVideo() {
 async function playCuedVideo() {
   const video = state.cued;
   state.cued = null;
-  const stopAudio = state.config.server_stt && !state.config.offline
+  const stopAudio = state.config.server_stt
     ? await pipeAudio((ctx) => ctx.createMediaElementSource(video), { audible: true })
     : () => {};
   if (!state.config.server_stt) toast("No server speech-to-text is set up, so the clip plays but what it says isn't checked.", 'notice');
@@ -841,21 +840,6 @@ function startBrowserSpeech() {
   };
 }
 
-async function playDemo(demo, token) {
-  const speed = Number(new URLSearchParams(location.search).get('speed')) || 1; // ?speed=3 to rehearse faster
-  if (demo.voices?.length) setVoices(demo.voices);
-  for (const line of demo.lines) {
-    for (let i = 2; i < line.text.length; i += 2) { // typed out like live captions
-      if (token.stopped) return;
-      setCaption(line.speaker, line.text.slice(0, i));
-      await sleep(36 / speed);
-    }
-    if (token.stopped) return;
-    say(line.speaker, line.text);
-    await sleep((line.pause ?? 1800) / speed);
-  }
-}
-
 async function start() {
   if (state.running) {
     stop();
@@ -863,17 +847,6 @@ async function start() {
   }
   const choice = $('#source').value;
   try {
-    if (choice.startsWith('demo:')) {
-      const token = { stopped: false };
-      state.running = { stop: () => { token.stopped = true; } };
-      setRunning(true);
-      await playDemo(state.demos.find((d) => `demo:${d.id}` === choice), token);
-      if (!token.stopped) {
-        stop();
-        showRecapWhenSettled();
-      }
-      return;
-    }
     if (choice === 'video' && !state.cued) {
       await cueVideo();
       return;
@@ -972,12 +945,7 @@ function applyTheme(theme) {
 
 async function init() {
   applyTheme(store('cg-theme') || 'dark');
-  const [config, demos] = await Promise.all([
-    fetch('/api/config').then((r) => r.json()),
-    fetch('/api/demos').then((r) => r.json()).catch(() => ({ demos: [] })),
-  ]);
-  state.config = config;
-  state.demos = demos.demos ?? [];
+  state.config = await fetch('/api/config').then((r) => r.json());
   buildSourceMenu();
   renderStatus();
   updateStats();
