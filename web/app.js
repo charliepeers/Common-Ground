@@ -20,7 +20,6 @@ const VERDICT = {
 const KIND = { contested: { label: 'Contested', icon: '⇄' }, value: { label: 'Value', icon: '◆' } };
 const STANCE = { disagrees: 'Disagrees', agrees: 'Agrees', complicates: 'Complicates' };
 const SPEAKER_COLORS = ['#f472b6', '#38bdf8', '#fbbf24', '#34d399', '#c084fc', '#fb923c'];
-const MODEL_NAMES = { 'claude-sonnet-5-5': 'Claude Sonnet 5.5', 'claude-opus-5-5': 'Claude Opus 5.5', 'claude-haiku-5-5': 'Claude Haiku 5.5' };
 
 const state = {
   config: {},
@@ -644,11 +643,6 @@ function renderStatus() {
   const pill = (text, cls = '') => h('span', `pill ${cls}`, text);
   const pills = [];
   if (c.test_data) pills.push(pill('Test data, not model output', 'warn')); // only under tests/serve.py
-  pills.push(pill(`${MODEL_NAMES[c.model] ?? c.model ?? '…'}${c.fast_mode ? ' · fast' : ''}`));
-  const evidence = { exa: 'Exa search', 'claude-web-search': 'Claude web search' }[c.evidence];
-  if (evidence) pills.push(pill(`Evidence: ${evidence}`));
-  const speech = c.server_stt ? `Speech: ${c.stt_name ?? 'server'}` : 'Speech: browser only';
-  pills.push(pill(speech, c.server_stt ? '' : 'off'));
   pills.push(pill(state.connected ? '● Connected' : '○ Reconnecting', state.connected ? 'live' : 'warn'));
   $('#status').replaceChildren(...pills);
 }
