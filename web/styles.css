@@ -1,17 +1,17 @@
-/* Cream, warm and quiet. Color tokens follow shadcn's structure (ui.shadcn.com/docs/theming);
-   the tones are Notion's text colors with their soft backgrounds, and the text is Notion's warm
-   dark gray rather than black. */
+/* Neutrals from animations.dev's light theme (its warm gray scale, read from the site's CSS), on
+   shadcn's token structure (ui.shadcn.com/docs/theming). The tones are Notion's text colors with
+   their soft backgrounds. */
 :root {
-  --bg: #f7f4ee;
-  --panel: #fbf9f5;
-  --card: #fffefb;
-  --panel-2: #f1ede5;
-  --panel-3: #e9e4da;
-  --border: #e7e2d8;
-  --ring: #cfc9bd;
-  --text: #37352f;
-  --muted: #787774;
-  --faint: #a8a59d;
+  --bg: #fdfdfc;      /* gray-100: the page */
+  --panel: #f9f9f8;   /* gray-200: panels */
+  --card: #ffffff;    /* cards and popovers */
+  --panel-2: #f1f0ef; /* gray-300: chips, like their "Get" button */
+  --panel-3: #e9e9e7; /* gray-400 */
+  --border: #e9e9e7;  /* gray-400: hairlines */
+  --ring: #cfceca;    /* gray-700 */
+  --text: #21201c;    /* gray-1200 */
+  --muted: #63635e;   /* secondary text: their gray-1000 is too light for body text (3.8:1) */
+  --faint: #82827c;   /* gray-1000: metadata */
   --true: #448361;
   --true-bg: #edf3ec;
   --false: #d44c47;
@@ -30,8 +30,8 @@
   --complicates: #cb912f;
   --complicates-bg: #fbf3db;
   --radius: 14px;
-  --shadow-sm: 0 1px 2px rgba(55, 53, 47, .05);
-  --shadow: 0 1px 2px rgba(55, 53, 47, .05), 0 12px 32px rgba(55, 53, 47, .1);
+  --shadow-sm: 0 2px 2px #0000000a;
+  --shadow: 0 0 0 1px #00000014, 0 1px 1px #00000005, 0 4px 8px -4px #0000000a, 0 16px 24px -8px #0000000f;
   --font: "Helvetica Neue", Helvetica, Arial, sans-serif; /* everything, the wordmark included */
   --brand: var(--font);
   /* Motion: short, a strong ease-out, transform and opacity only, exits faster than entrances. */
@@ -56,7 +56,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 a { color: inherit; }
 button { cursor: pointer; }
 .primary, .secondary, .icon-btn, .actions button, .pushback-form button, .toast .row button, .source-chip {
-  transition: transform 120ms var(--ease-out), background-color 150ms var(--ease-out), color 150ms var(--ease-out);
+  transition: transform 120ms var(--ease-out), background-color 150ms var(--ease-out), color 150ms var(--ease-out), filter .2s;
 }
 .primary:active, .secondary:active, .icon-btn:active, .actions button:active,
 .pushback-form button:active, .toast .row button:active, .source-chip:active { transform: scale(.97); }
@@ -71,17 +71,34 @@ button { cursor: pointer; }
 .brand { display: flex; align-items: center; gap: 12px; flex: none; }
 h1 { font: 700 19px/1.15 var(--brand); text-transform: uppercase; letter-spacing: -.005em; margin: 0; }
 .controls { display: flex; gap: 8px; flex: none; }
+/* Buttons take the shape of animations.dev's "Notify me" (.buy-button): a top-lit gradient, an inset
+   highlight, a hairline ring in a darker shade, a soft 2px drop, a hint of text shadow, and a
+   brightness lift on hover. Ours are dark, red while recording, and light for Clear. */
 .primary, .secondary {
-  display: inline-flex; align-items: center; gap: 8px;
-  height: 38px; padding: 0 18px; border-radius: 999px; font-weight: 500; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 8px; border: none;
+  height: 40px; padding: 0 16px; border-radius: 10px; font-size: 15px; font-weight: 500; white-space: nowrap;
 }
-.primary { background: var(--text); color: var(--card); border: 1px solid var(--text); }
-.primary:hover { background: #2a2925; }
+.primary {
+  color: #fff; text-shadow: 0 .5px #0000007a;
+  background: linear-gradient(#4a4944 0%, #21201c 100%);
+  box-shadow: inset 0 0 1px 1px #ffffff24, 0 0 0 1px #00000014, 0 2px 2px #0000000a, 0 0 0 1px #21201c;
+}
+.primary:hover { filter: brightness(118%); }
 .primary .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--false); }
-.primary.running { background: var(--false); border-color: var(--false); color: #fff; }
+.primary.running {
+  text-shadow: 0 .5px #4200007a;
+  background: linear-gradient(#e2625d 0%, #c8403b 100%);
+  box-shadow: inset 0 0 1px 1px #ffffff2e, 0 0 0 1px #00000014, 0 2px 2px #0000000a, 0 0 0 1px #c13c37;
+}
+.primary.running:hover { filter: brightness(105%); }
 .primary.running .dot { background: #fff; animation: pulse 1.2s infinite; }
-.secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); }
-.secondary:hover { background: var(--panel-2); }
+.secondary {
+  color: var(--text); text-shadow: 0 .5px #ffffff7a;
+  background: linear-gradient(#ffffff 0%, #f4f3f1 100%);
+  box-shadow: inset 0 0 1px 1px #ffffff24, 0 0 0 1px #00000014, 0 2px 2px #0000000a;
+}
+.secondary:hover { filter: brightness(98%); }
+.pane-head .secondary { height: 30px; padding: 0 12px; border-radius: 8px; font-size: 13px; } /* the small size, like .buy-button-small */
 .status { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
 .pill {
   font-size: 12px; padding: 4px 10px; border-radius: 999px; white-space: nowrap;
@@ -262,17 +279,24 @@ mark.flash { animation: flash 1s ease-out 2; }
 .pop-date { margin-top: 6px; font-size: 12px; color: var(--faint); }
 
 /* perspectives: other people, in their own words */
-/* Condensed: rows, not boxes; the quote clamped to two lines until clicked. */
-.takes { display: grid; margin-top: 16px; border-top: 1px solid var(--border); }
+/* A take is one row, like a list on animations.dev: who, where they stand, a one-line summary and
+   the source. Clicked, it opens to their exact words and the page they come from. */
+.takes { display: grid; margin-top: 12px; }
 .take {
-  padding: 14px 0; border-bottom: 1px solid var(--border); cursor: pointer;
-  animation: rise 250ms var(--ease-out) both;
+  position: relative; cursor: pointer; overflow: hidden;
+  animation: rise 250ms var(--ease-out) both; transition: opacity 200ms var(--ease-out);
 }
-.take-head { display: flex; align-items: center; gap: 8px; }
-.take-head .sources { margin-left: auto; }
+.takes.has-open .take:not(.open) { opacity: .4; } /* the others recede while one is open */
+.take .avatar, .take-text { transform-origin: 0 0; }
+.take::after { content: ""; position: absolute; left: 52px; right: 0; bottom: 0; border-bottom: 1px solid var(--border); }
+.take:last-of-type::after { display: none; }
+.take-row { display: flex; align-items: center; gap: 14px; }
+.take-text { flex: 1; min-width: 0; padding: 12px 0; }
+.take-title { display: flex; align-items: center; gap: 8px; }
+.take-row .sources { flex: none; }
 .avatar {
-  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; flex: none;
-  font-size: 10px; font-weight: 500; color: #fff; background: var(--contested);
+  width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; flex: none;
+  font-size: 12.5px; font-weight: 500; color: #fff; background: var(--contested);
 }
 .person { font-weight: 500; font-size: 14px; }
 .stance {
@@ -284,13 +308,23 @@ mark.flash { animation: flash 1s ease-out 2; }
 .s-disagrees .stance::before { content: "\21C4  "; }
 .s-agrees .stance::before { content: "=  "; }
 .s-complicates .stance::before { content: "\2248  "; }
-.take-quote {
-  margin: 8px 0 0 30px; font-size: 14.5px; line-height: 1.55; color: var(--text);
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+.take-summary { margin: 2px 0 0; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.take.open .take-summary { white-space: normal; }
+.take.open .avatar { width: 52px; height: 52px; border-radius: 14px; font-size: 16px; }
+.take-details { display: none; padding: 0 0 16px 66px; }
+.take.open .take-details { display: block; }
+.take-quote { margin: 0 0 12px; font-size: 15px; line-height: 1.55; color: var(--text); }
+.take-evidence { padding: 12px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--border); }
+.evidence-link { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; text-decoration: none; font-size: 13px; }
+.evidence-site { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.evidence-site img { width: 16px; height: 16px; border-radius: 50%; }
+.evidence-title { color: var(--text); font-weight: 500; }
+.evidence-link:hover .evidence-title { text-decoration: underline; }
+.evidence-date { color: var(--faint); font-variant-numeric: tabular-nums; }
+.evidence-snippet {
+  margin: 6px 0 0; font-size: 13px; line-height: 1.5; color: var(--muted);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
-.take.open .take-quote { display: block; }
-.take-summary { display: none; margin: 6px 0 0 30px; font-size: 13px; line-height: 1.5; color: var(--muted); }
-.take.open .take-summary { display: block; animation: rise 200ms var(--ease-out); }
 .more-takes {
   justify-self: start; margin-top: 10px; border: none; background: none; padding: 3px 0;
   font-size: 13px; color: var(--muted);
@@ -301,7 +335,7 @@ mark.flash { animation: flash 1s ease-out 2; }
 /* ---------- common ground recap ---------- */
 .recap {
   position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 24px;
-  background: rgba(247, 244, 238, .82); backdrop-filter: blur(10px);
+  background: rgba(253, 253, 252, .82); backdrop-filter: blur(10px);
   animation: fade 200ms var(--ease-out);
 }
 .recap-panel {

@@ -55,9 +55,9 @@ Open http://localhost:8000 and press **Start**. One microphone listens to the wh
 On screen:
 
 - **The transcript** is a two-line strip that stays on the latest words; scroll it up to read back.
-- **Cards** lead with the exact words that were said. A plain fact gets a small verdict and, when it isn't true, one line on what is, with its sources cited inline as one chip (`en.wikipedia +2`); hovering the chip shows each page's title, excerpt and site logo. Contested claims and values show the other voices, in their own words.
+- **Cards** lead with the exact words that were said. A plain fact gets a small verdict and, when it isn't true, one line on what is, with its sources cited inline as one chip (`en.wikipedia +2`); hovering the chip shows each page's title, excerpt and site logo. Contested claims and values list the other voices, one row each: who, where they stand, a one-line summary and the source. Click a row to open it to the person's exact words and the page they come from.
 - **Push back** asks for a deeper re-check; **Dismiss** removes a card, its highlight and its place in the tally.
-- **Clear** (top right, next to Start) starts over: an empty page and a fresh session on the server, so nothing from the old conversation carries into the new one.
+- **Clear** (on the transcript panel) starts over: an empty page and a fresh session on the server, so nothing from the old conversation carries into the new one.
 - **Keys:** S opens the recap ("Common ground": the facts checked, false first; the open questions with who stands where; the values that are yours to weigh). P toggles presentation mode. Esc closes the recap.
 
 **On a phone:** browsers only allow the microphone over HTTPS, so open the app through a tunnel. Then open the https link it prints:

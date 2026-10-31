@@ -93,7 +93,7 @@ A speaker in a live conversation just made a claim that isn't settled fact: a co
 You get the claim, who said it, and excerpts from web pages that may contain other people's takes. Pick up to 4 perspectives:
 - person: who holds the view, named as in the excerpt. Only real, named people (or a named organization) whose view the excerpt itself shows. Never attribute a view to someone the excerpt doesn't quote or clearly describe.
 - stance, relative to the speaker's claim: "agrees", "disagrees" or "complicates" (agrees in part, or reframes the question).
-- summary: their position in plain words, at most 20 words.
+- summary: their position in plain words, at most 12 words, so it fits on one line.
 - quote: an exact excerpt from that source's text, at most 40 words, copied character for character. It's checked against the page, and anything not verbatim is thrown away.
 - source_id: the number of the excerpt the quote comes from.
 

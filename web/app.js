@@ -561,21 +561,27 @@ function debateBody(claim) {
   if (!claim.perspectives.length) {
     card.append(h('p', 'no-takes', claim.perspectivesNote || 'No sourced takes found. This one is yours to weigh.'));
   } else {
-    // Condensed: one row per person, the quote clamped to two lines. Click a take for all of it.
+    // One row per person: a one-line summary and the source. Click a take for their exact words.
     const takes = h('div', 'takes');
     claim.perspectives.forEach((p, i) => {
-      const take = h('div', `take s-${p.stance}`, null, { title: 'Show the whole quote' });
+      const take = h('div', `take s-${p.stance}`);
       take.style.animationDelay = `${i * 70}ms`;
       take.hidden = i >= SHOWN_TAKES;
-      const head = h('div', 'take-head');
       const avatar = h('span', 'avatar', initials(p.person));
       avatar.style.background = personColor(p.person);
-      head.append(avatar, h('span', 'person', p.person), h('span', 'stance', STANCE[p.stance] ?? p.stance));
-      if (p.source?.url) head.append(sourceList([p.source])); // cited like a fact: a chip, details on hover
-      take.append(head, h('blockquote', 'take-quote', `“${p.quote}”`));
-      if (p.summary) take.append(h('p', 'take-summary', p.summary));
+      const title = h('div', 'take-title');
+      title.append(h('span', 'person', p.person), h('span', 'stance', STANCE[p.stance] ?? p.stance));
+      const text = h('div', 'take-text');
+      text.append(title, h('p', 'take-summary', p.summary || `“${p.quote}”`));
+      const row = h('div', 'take-row');
+      row.append(avatar, text);
+      if (p.source?.url) row.append(sourceList([p.source])); // cited like a fact: a chip, details on hover
+      const details = h('div', 'take-details');
+      details.append(h('blockquote', 'take-quote', `“${p.quote}”`));
+      if (p.source?.url) details.append(takeEvidence(p.source));
+      take.append(row, details);
       take.addEventListener('click', (event) => {
-        if (!event.target.closest('a, .sources')) take.classList.toggle('open'); // not when using the source chip
+        if (!event.target.closest('a, .sources')) toggleTake(take); // not when using the source chip
       });
       takes.append(take);
     });
@@ -593,6 +599,49 @@ function debateBody(claim) {
   const foot = h('div', 'card-foot');
   foot.append(cardActions(claim));
   card.append(foot);
+}
+
+// The page a take comes from, shown when it's opened.
+function takeEvidence(s) {
+  const link = h('a', 'evidence-link', null, { href: safeUrl(s.url), target: '_blank', rel: 'noopener noreferrer' });
+  const site = h('span', 'evidence-site');
+  site.append(favicon(s.url), siteName(s.url));
+  link.append(site, h('span', 'evidence-title', s.title || domain(s.url)));
+  if (s.published) link.append(h('span', 'evidence-date', s.published));
+  const box = h('div', 'take-evidence');
+  box.append(link);
+  const snippet = plainSnippet(s.snippet);
+  if (snippet) box.append(h('p', 'evidence-snippet', snippet));
+  return box;
+}
+
+// Opens or closes a take the way a list item opens on animations.dev: the avatar grows, the text
+// slides over, the height eases to fit, the details fade in and the other takes recede. Each moving
+// part is measured before and after, then animated from where it was (FLIP). One open at a time.
+function toggleTake(take) {
+  const list = take.parentElement;
+  const opening = !take.classList.contains('open');
+  const other = list.querySelector('.take.open');
+  if (opening && other && other !== take) toggleTake(other);
+  const moving = [$('.avatar', take), $('.take-text', take)];
+  const before = { height: take.offsetHeight, rects: moving.map((el) => el.getBoundingClientRect()) };
+  take.classList.toggle('open', opening);
+  list.classList.toggle('has-open', Boolean(list.querySelector('.take.open')));
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const ease = 'cubic-bezier(.23, 1, .32, 1)';
+  const duration = 320;
+  take.animate([{ height: `${before.height}px` }, { height: `${take.offsetHeight}px` }], { duration, easing: ease });
+  moving.forEach((el, i) => {
+    const was = before.rects[i];
+    const now = el.getBoundingClientRect();
+    const scale = el.classList.contains('avatar') ? was.width / now.width : 1; // text only slides; the avatar also grows
+    el.animate([{ transform: `translate(${was.left - now.left}px, ${was.top - now.top}px) scale(${scale})` }, { transform: 'none' }],
+      { duration, easing: ease });
+  });
+  if (opening) {
+    $('.take-details', take).animate([{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'none' }],
+      { duration: 240, delay: 80, easing: ease, fill: 'backwards' });
+  }
 }
 
 function focusCard(id) {
