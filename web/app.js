@@ -51,16 +51,6 @@ function domain(url) {
   }
 }
 
-function initials(name) {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
-}
-
-function personColor(name) {
-  let hash = 0;
-  for (const ch of name) hash = (hash * 31 + ch.codePointAt(0)) % 360;
-  return `hsl(${hash}, 30%, 46%)`;
-}
-
 function clock(t) {
   state.t0 ??= t;
   const s = Math.max(0, Math.round(t - state.t0));
@@ -567,14 +557,12 @@ function debateBody(claim) {
       const take = h('div', `take s-${p.stance}`);
       take.style.animationDelay = `${i * 70}ms`;
       take.hidden = i >= SHOWN_TAKES;
-      const avatar = h('span', 'avatar', initials(p.person));
-      avatar.style.background = personColor(p.person);
       const title = h('div', 'take-title');
       title.append(h('span', 'person', p.person), h('span', 'stance', STANCE[p.stance] ?? p.stance));
       const text = h('div', 'take-text');
       text.append(title, h('p', 'take-summary', p.summary || `“${p.quote}”`));
       const row = h('div', 'take-row');
-      row.append(avatar, text);
+      row.append(text);
       if (p.source?.url) row.append(sourceList([p.source])); // cited like a fact: a chip, details on hover
       const details = h('div', 'take-details');
       details.append(h('blockquote', 'take-quote', `“${p.quote}”`));
@@ -615,29 +603,19 @@ function takeEvidence(s) {
   return box;
 }
 
-// Opens or closes a take the way a list item opens on animations.dev: the avatar grows, the text
-// slides over, the height eases to fit, the details fade in and the other takes recede. Each moving
-// part is measured before and after, then animated from where it was (FLIP). One open at a time.
+// Opens or closes a take the way a list item opens on animations.dev: the height eases to fit, the
+// details fade in and the other takes recede. One open at a time.
 function toggleTake(take) {
   const list = take.parentElement;
   const opening = !take.classList.contains('open');
   const other = list.querySelector('.take.open');
   if (opening && other && other !== take) toggleTake(other);
-  const moving = [$('.avatar', take), $('.take-text', take)];
-  const before = { height: take.offsetHeight, rects: moving.map((el) => el.getBoundingClientRect()) };
+  const before = take.offsetHeight;
   take.classList.toggle('open', opening);
   list.classList.toggle('has-open', Boolean(list.querySelector('.take.open')));
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const ease = 'cubic-bezier(.23, 1, .32, 1)';
-  const duration = 320;
-  take.animate([{ height: `${before.height}px` }, { height: `${take.offsetHeight}px` }], { duration, easing: ease });
-  moving.forEach((el, i) => {
-    const was = before.rects[i];
-    const now = el.getBoundingClientRect();
-    const scale = el.classList.contains('avatar') ? was.width / now.width : 1; // text only slides; the avatar also grows
-    el.animate([{ transform: `translate(${was.left - now.left}px, ${was.top - now.top}px) scale(${scale})` }, { transform: 'none' }],
-      { duration, easing: ease });
-  });
+  take.animate([{ height: `${before}px` }, { height: `${take.offsetHeight}px` }], { duration: 320, easing: ease });
   if (opening) {
     $('.take-details', take).animate([{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'none' }],
       { duration: 240, delay: 80, easing: ease, fill: 'backwards' });

@@ -287,17 +287,12 @@ mark.flash { animation: flash 1s ease-out 2; }
   animation: rise 250ms var(--ease-out) both; transition: opacity 200ms var(--ease-out);
 }
 .takes.has-open .take:not(.open) { opacity: .4; } /* the others recede while one is open */
-.take .avatar, .take-text { transform-origin: 0 0; }
-.take::after { content: ""; position: absolute; left: 52px; right: 0; bottom: 0; border-bottom: 1px solid var(--border); }
+.take::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; border-bottom: 1px solid var(--border); }
 .take:last-of-type::after { display: none; }
 .take-row { display: flex; align-items: center; gap: 14px; }
 .take-text { flex: 1; min-width: 0; padding: 12px 0; }
 .take-title { display: flex; align-items: center; gap: 8px; }
 .take-row .sources { flex: none; }
-.avatar {
-  width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; flex: none;
-  font-size: 12.5px; font-weight: 500; color: #fff; background: var(--contested);
-}
 .person { font-weight: 500; font-size: 14px; }
 .stance {
   font-size: 12px; font-weight: 500;
@@ -310,8 +305,7 @@ mark.flash { animation: flash 1s ease-out 2; }
 .s-complicates .stance::before { content: "\2248  "; }
 .take-summary { margin: 2px 0 0; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .take.open .take-summary { white-space: normal; }
-.take.open .avatar { width: 52px; height: 52px; border-radius: 14px; font-size: 16px; }
-.take-details { display: none; padding: 0 0 16px 66px; }
+.take-details { display: none; padding: 0 0 16px; }
 .take.open .take-details { display: block; }
 .take-quote { margin: 0 0 12px; font-size: 15px; line-height: 1.55; color: var(--text); }
 .take-evidence { padding: 12px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--border); }
