@@ -1,0 +1,461 @@
+{
+  "_about": "TEST DATA for OFFLINE=1 and tests/e2e.cjs, labeled as such on screen. Hand-written, not model output, and it carries no timings. The sources and quoted snippets are real pages.",
+  "lines": {
+    "Okay, quick sanity check for the civics slides. Joe Biden is the 47th president, right?": {
+      "claims": [
+        {
+          "quote": "Joe Biden is the 47th president",
+          "claim": "Joe Biden is the 47th president of the United States.",
+          "kind": "fact",
+          "verdict": "false",
+          "confidence": "high",
+          "explanation": "Biden was the 46th president (2021–2025); Donald Trump became the 47th on January 20, 2025.",
+          "correction": "Biden was the 46th president; Donald Trump is the 47th.",
+          "sources": [
+            {
+              "title": "List of presidents of the United States",
+              "url": "https://en.wikipedia.org/wiki/List_of_presidents_of_the_United_States",
+              "published": "",
+              "snippet": "The discrepancy is due to the nonconsecutive terms of Grover Cleveland (counted as the 22nd and 24th president) and Donald Trump (counted as the 45th and 47th president). … 46 Joe Biden … January 20, 2021 – January 20, 2025 … 47 Donald Trump … 2nd term … January 20, 2025"
+            }
+          ],
+          "needs_search": false,
+          "query": "",
+          "voices": []
+        }
+      ]
+    },
+    "No, Biden was the 46th. Trump is the 47th, and he was the 45th too.": {
+      "claims": [
+        {
+          "quote": "Biden was the 46th",
+          "claim": "Joe Biden was the 46th president of the United States.",
+          "kind": "fact",
+          "verdict": "true",
+          "confidence": "high",
+          "explanation": "Biden served as the 46th president, from 2021 to 2025.",
+          "correction": "",
+          "sources": [
+            {
+              "title": "List of presidents of the United States",
+              "url": "https://en.wikipedia.org/wiki/List_of_presidents_of_the_United_States",
+              "published": "",
+              "snippet": "The discrepancy is due to the nonconsecutive terms of Grover Cleveland (counted as the 22nd and 24th president) and Donald Trump (counted as the 45th and 47th president). … 46 Joe Biden … January 20, 2021 – January 20, 2025 … 47 Donald Trump … 2nd term … January 20, 2025"
+            }
+          ],
+          "needs_search": false,
+          "query": "",
+          "voices": []
+        },
+        {
+          "quote": "Trump is the 47th, and he was the 45th too",
+          "claim": "Donald Trump is the 47th president of the United States and was also the 45th.",
+          "kind": "fact",
+          "verdict": "true",
+          "confidence": "high",
+          "explanation": "His nonconsecutive terms count twice: 45th (2017–2021) and 47th (since January 2025).",
+          "correction": "",
+          "sources": [
+            {
+              "title": "List of presidents of the United States",
+              "url": "https://en.wikipedia.org/wiki/List_of_presidents_of_the_United_States",
+              "published": "",
+              "snippet": "The discrepancy is due to the nonconsecutive terms of Grover Cleveland (counted as the 22nd and 24th president) and Donald Trump (counted as the 45th and 47th president). … 46 Joe Biden … January 20, 2021 – January 20, 2025 … 47 Donald Trump … 2nd term … January 20, 2025"
+            }
+          ],
+          "needs_search": false,
+          "query": "",
+          "voices": []
+        }
+      ]
+    },
+    "Cool. For the intro I want the fun fact that the Great Wall of China is the only man-made structure you can see from space.": {
+      "claims": [
+        {
+          "quote": "the Great Wall of China is the only man-made structure you can see from space",
+          "claim": "The Great Wall of China is the only human-made structure visible from space.",
+          "kind": "fact",
+          "verdict": "false",
+          "confidence": "high",
+          "explanation": "From orbit the wall is hard or impossible to see unaided, and modern desert roads are more visible.",
+          "correction": "It's barely visible from orbit; other structures are easier to see.",
+          "sources": [
+            {
+              "title": "Is China's Great Wall Visible from Space?",
+              "url": "https://www.scientificamerican.com/article/is-chinas-great-wall-visible-from-space/",
+              "published": "2008-02-21",
+              "snippet": "Though it stretches for some 4,500 miles, the ancient Chinese fortification is not as visible from orbit as modern desert roads"
+            },
+            {
+              "title": "Great Wall",
+              "url": "https://www.nasa.gov/image-article/great-wall/",
+              "published": "2009-04-02",
+              "snippet": "The Great Wall of China and Inner Mongolia are featured in this image photographed by Expedition 10 Commander Leroy Chiao on the International Space Station. Despite myths to the contrary, the wall isn't visible from the moon, and is difficult or impossible to see from Earth orbit without the high-powered lenses used for this photo."
+            }
+          ],
+          "needs_search": false,
+          "query": "",
+          "voices": []
+        }
+      ]
+    },
+    "Also, we only use ten percent of our brains, so the learning slide should say that.": {
+      "claims": [
+        {
+          "quote": "we only use ten percent of our brains",
+          "claim": "Humans use only 10 percent of their brains.",
+          "kind": "fact",
+          "verdict": "false",
+          "confidence": "high",
+          "explanation": "Neurologists say we use virtually every part of the brain; the 10 percent figure is a myth.",
+          "correction": "We use virtually all of the brain.",
+          "sources": [
+            {
+              "title": "Do People Only Use 10 Percent of Their Brains?",
+              "url": "https://www.scientificamerican.com/article/do-people-only-use-10-percent-of-their-brains/",
+              "published": "",
+              "snippet": "Though an alluring idea, the \"10 percent myth\" is so wrong it is almost laughable, says neurologist Barry Gordon at Johns Hopkins School of Medicine in Baltimore. … \"It turns out though, that we use virtually every part of the brain, and that [most of] the brain is active almost all the time,\" Gordon adds."
+            }
+          ],
+          "needs_search": false,
+          "query": "",
+          "voices": []
+        }
+      ]
+    },
+    "Honestly, I think we should spend way more on space exploration than on the military.": {
+      "claims": [
+        {
+          "quote": "we should spend way more on space exploration than on the military",
+          "claim": "The U.S. should spend much more on space exploration than on the military.",
+          "kind": "value",
+          "verdict": "unverifiable",
+          "confidence": "high",
+          "explanation": "A judgment about national priorities: security versus exploration.",
+          "correction": "",
+          "sources": [],
+          "needs_search": false,
+          "query": "should the US spend more on space exploration than on defense",
+          "voices": []
+        }
+      ]
+    },
+    "The first Moon landing was in 1969, so that date on slide four is right.": {
+      "claims": [
+        {
+          "quote": "The first Moon landing was in 1969",
+          "claim": "The first crewed Moon landing took place in 1969.",
+          "kind": "fact",
+          "verdict": "true",
+          "confidence": "high",
+          "explanation": "Apollo 11 landed on the Moon in July 1969.",
+          "correction": "",
+          "sources": [],
+          "needs_search": true,
+          "query": "first crewed Moon landing date Apollo 11",
+          "voices": []
+        }
+      ]
+    },
+    "And lightning never strikes the same place twice, so the weather slide is fine.": {
+      "claims": [
+        {
+          "quote": "lightning never strikes the same place twice",
+          "claim": "Lightning never strikes the same place twice.",
+          "kind": "fact",
+          "verdict": "false",
+          "confidence": "high",
+          "explanation": "The National Weather Service calls it a myth: the Empire State Building is hit about 23 times a year.",
+          "correction": "Lightning often strikes the same place repeatedly.",
+          "sources": [
+            {
+              "title": "Lightning Myths",
+              "url": "https://www.weather.gov/safety/lightning-myths",
+              "published": "",
+              "snippet": "Myth : Lightning never strikes the same place twice. Fact: Lightning often strikes the same place repeatedly, especially if it's a tall, pointy, isolated object. The Empire State Building is hit an average of 23 times a year"
+            }
+          ],
+          "needs_search": false,
+          "query": "",
+          "voices": []
+        }
+      ]
+    },
+    "Our school's robotics team won the state championship last year, let's mention that.": {
+      "claims": [
+        {
+          "quote": "Our school's robotics team won the state championship last year",
+          "claim": "The speaker's school robotics team won the state championship last year.",
+          "kind": "fact",
+          "verdict": "unverifiable",
+          "confidence": "medium",
+          "explanation": "No public source identifies the school, so this can't be checked here.",
+          "correction": "",
+          "sources": [],
+          "needs_search": false,
+          "query": "",
+          "voices": []
+        }
+      ]
+    },
+    "I think this is going to be a really good presentation.": {
+      "claims": []
+    },
+    "They don't really have persistent memory. They can't really reason and they certainly can't plan.": {
+      "claims": [
+        {
+          "quote": "They can't really reason and they certainly can't plan",
+          "claim": "Large language models lack persistent memory and cannot really reason or plan.",
+          "kind": "contested",
+          "verdict": "unverifiable",
+          "confidence": "high",
+          "explanation": "Whether next-token predictors reason, or only imitate reasoning.",
+          "correction": "",
+          "sources": [],
+          "needs_search": false,
+          "query": "can large language models reason and plan",
+          "voices": [
+            "Richard Sutton"
+          ]
+        }
+      ]
+    },
+    "The type of reasoning that takes place in LLM is very, very primitive, and the reason you can tell is primitive is because the amount of computation that is spent per token produced is constant.": {
+      "claims": [
+        {
+          "quote": "The type of reasoning that takes place in LLM is very, very primitive",
+          "claim": "Reasoning in LLMs is very primitive because the computation spent per generated token is constant.",
+          "kind": "contested",
+          "verdict": "unverifiable",
+          "confidence": "high",
+          "explanation": "Whether fixed compute per token caps reasoning, or more tokens buy more thinking.",
+          "correction": "",
+          "sources": [],
+          "needs_search": false,
+          "query": "LLM reasoning computation per token thinking out loud",
+          "voices": [
+            "Ilya Sutskever"
+          ]
+        }
+      ]
+    },
+    "A house cat has way more common sense and understanding of the world than any LLM.": {
+      "claims": [
+        {
+          "quote": "A house cat has way more common sense and understanding of the world than any LLM",
+          "claim": "A house cat has more common sense and understanding of the world than any large language model.",
+          "kind": "contested",
+          "verdict": "unverifiable",
+          "confidence": "high",
+          "explanation": "Whether learning from text can produce real understanding of the world.",
+          "correction": "",
+          "sources": [],
+          "needs_search": false,
+          "query": "do LLMs understand the world common sense",
+          "voices": [
+            "Ilya Sutskever",
+            "Richard Sutton"
+          ]
+        }
+      ]
+    },
+    "If you're really interested in human level AI, abandon the idea of generative AI.": {
+      "claims": [
+        {
+          "quote": "abandon the idea of generative AI",
+          "claim": "Researchers who want human-level AI should abandon generative AI.",
+          "kind": "value",
+          "verdict": "unverifiable",
+          "confidence": "high",
+          "explanation": "A research bet: scale generative models, or build world models instead.",
+          "correction": "",
+          "sources": [],
+          "needs_search": false,
+          "query": "should AI research abandon generative models for world models",
+          "voices": []
+        }
+      ]
+    }
+  },
+  "escalations": {
+    "The first crewed Moon landing took place in 1969.": {
+      "verdict": "true",
+      "confidence": "high",
+      "explanation": "Apollo 11 landed on July 20, 1969, carrying Neil Armstrong and Buzz Aldrin.",
+      "correction": "",
+      "sources": [
+        {
+          "title": "Apollo 11",
+          "url": "https://www.nasa.gov/mission/apollo-11/",
+          "published": "",
+          "snippet": "Apollo 11 launched on July 16, 1969, carrying Neil Armstrong, Michael Collins and Edwin “Buzz” Aldrin for the first crewed… July 20, 1969: One Giant Leap For Mankind"
+        }
+      ]
+    }
+  },
+  "pushbacks": {
+    "The Great Wall of China is the only human-made structure visible from space.": {
+      "verdict": "false",
+      "confidence": "high",
+      "explanation": "An ISS crew photographed it with high-powered lenses; unaided, it's difficult or impossible to see from orbit.",
+      "correction": "It's barely visible from orbit, and it isn't the only structure that can be seen.",
+      "sources": [
+        {
+          "title": "Great Wall",
+          "url": "https://www.nasa.gov/image-article/great-wall/",
+          "published": "2009-04-02",
+          "snippet": "The Great Wall of China and Inner Mongolia are featured in this image photographed by Expedition 10 Commander Leroy Chiao on the International Space Station. Despite myths to the contrary, the wall isn't visible from the moon, and is difficult or impossible to see from Earth orbit without the high-powered lenses used for this photo."
+        },
+        {
+          "title": "Is China's Great Wall Visible from Space?",
+          "url": "https://www.scientificamerican.com/article/is-chinas-great-wall-visible-from-space/",
+          "published": "2008-02-21",
+          "snippet": "Though it stretches for some 4,500 miles, the ancient Chinese fortification is not as visible from orbit as modern desert roads"
+        }
+      ],
+      "note": "Fair point: Leroy Chiao photographed it from the ISS. But NASA notes that took high-powered lenses, and other structures such as desert roads show up more easily, so 'the only structure you can see' still doesn't hold."
+    }
+  },
+  "perspectives": {
+    "The U.S. should spend much more on space exploration than on the military.": {
+      "perspectives": [],
+      "note": "Offline replay has no takes recorded for this line. Live mode searches for them."
+    },
+    "Large language models lack persistent memory and cannot really reason or plan.": {
+      "perspectives": [
+        {
+          "person": "Andrej Karpathy",
+          "stance": "disagrees",
+          "summary": "Training on verifiable rewards makes LLMs develop reasoning strategies on their own.",
+          "quote": "By training LLMs against automatically verifiable rewards across a number of environments (e.g. think math/code puzzles), the LLMs spontaneously develop strategies that look like \"reasoning\" to humans - they learn to break down problem solving into intermediate calculations…",
+          "source": {
+            "title": "2025 LLM Year in Review",
+            "url": "https://karpathy.bearblog.dev/year-in-review-2025/",
+            "published": "2025-12-19",
+            "snippet": "By training LLMs against automatically verifiable rewards across a number of environments (e.g. think math/code puzzles), the LLMs spontaneously develop strategies that look like \"reasoning\" to humans - they learn to break down problem solving into intermediate calculations"
+          }
+        },
+        {
+          "person": "Andrej Karpathy",
+          "stance": "complicates",
+          "summary": "Agrees they lack memory and continual learning today, but sees about a decade of work, not a dead end.",
+          "quote": "They don't have continual learning. You can't just tell them something and they'll remember it. They're cognitively lacking and it's just not working. It will take about a decade to work through all of those issues.",
+          "source": {
+            "title": "Andrej Karpathy — AGI is still a decade away",
+            "url": "https://www.dwarkesh.com/p/andrej-karpathy",
+            "published": "2025-10-17",
+            "snippet": "They don't have continual learning. You can't just tell them something and they'll remember it. They're cognitively lacking and it's just not working. It will take about a decade to work through all of those issues."
+          }
+        },
+        {
+          "person": "Richard Sutton",
+          "stance": "agrees",
+          "summary": "LLMs imitate what people say; they don't work out what to do.",
+          "quote": "Reinforcement learning is about understanding your world, whereas large language models are about mimicking people, doing what people say you should do. They're not about figuring out what to do.",
+          "source": {
+            "title": "Richard Sutton – Father of RL thinks LLMs are a dead end",
+            "url": "https://www.dwarkesh.com/p/richard-sutton",
+            "published": "2025-09-26",
+            "snippet": "Reinforcement learning is about understanding your world, whereas large language models are about mimicking people, doing what people say you should do. They're not about figuring out what to do."
+          }
+        }
+      ]
+    },
+    "Reasoning in LLMs is very primitive because the computation spent per generated token is constant.": {
+      "perspectives": [
+        {
+          "person": "Andrej Karpathy",
+          "stance": "complicates",
+          "summary": "Ability is jagged: the same models solve hard math and stumble on very dumb problems.",
+          "quote": "The word I came up with to describe the (strange, unintuitive) fact that state of the art LLMs can both perform extremely impressive tasks (e.g. solve complex math problems) while simultaneously struggle with some very dumb problems.",
+          "source": {
+            "title": "Jagged Intelligence (post on X)",
+            "url": "https://x.com/karpathy/status/1816531576228053133",
+            "published": "2024-07-25",
+            "snippet": "The word I came up with to describe the (strange, unintuitive) fact that state of the art LLMs can both perform extremely impressive tasks (e.g. solve complex math problems) while simultaneously struggle with some very dumb problems."
+          }
+        },
+        {
+          "person": "Ilya Sutskever",
+          "stance": "disagrees",
+          "summary": "Weak at silent multistep reasoning, but quite good once allowed to think out loud.",
+          "quote": "I actually think that they are bad at mental multistep reasoning when they are not allowed to think out loud. But when they are allowed to think out loud, they're quite good.",
+          "source": {
+            "title": "Ilya Sutskever (OpenAI Chief Scientist) - Building AGI, Alignment, & Future Models",
+            "url": "https://www.dwarkesh.com/p/ilya-sutskever",
+            "published": "2023-03-27",
+            "snippet": "I actually think that they are bad at mental multistep reasoning when they are not allowed to think out loud. But when they are allowed to think out loud, they're quite good."
+          }
+        }
+      ]
+    },
+    "A house cat has more common sense and understanding of the world than any large language model.": {
+      "perspectives": [
+        {
+          "person": "Andrej Karpathy",
+          "stance": "complicates",
+          "summary": "LLMs are a different kind of mind, ghosts rather than animals, so animal yardsticks mislead.",
+          "quote": "Stated plainly, today's frontier LLM research is not about building animals. It is about summoning ghosts.",
+          "source": {
+            "title": "Animals vs Ghosts",
+            "url": "https://karpathy.bearblog.dev/animals-vs-ghosts/",
+            "published": "2025-10-01",
+            "snippet": "Stated plainly, today's frontier LLM research is not about building animals. It is about summoning ghosts."
+          }
+        },
+        {
+          "person": "Ilya Sutskever",
+          "stance": "disagrees",
+          "summary": "Predicting text well requires understanding the reality that produced it.",
+          "quote": "Predicting the next token well means that you understand the underlying reality that led to the creation of that token. It's not statistics. Like it is statistics but what is statistics?",
+          "source": {
+            "title": "Ilya Sutskever (OpenAI Chief Scientist) - Building AGI, Alignment, & Future Models",
+            "url": "https://www.dwarkesh.com/p/ilya-sutskever",
+            "published": "2023-03-27",
+            "snippet": "Predicting the next token well means that you understand the underlying reality that led to the creation of that token. It's not statistics. Like it is statistics but what is statistics?"
+          }
+        },
+        {
+          "person": "Richard Sutton",
+          "stance": "agrees",
+          "summary": "LLMs predict what a person would say, not what will happen in the world.",
+          "quote": "A world model would enable you to predict what would happen. They have the ability to predict what a person would say. They don't have the ability to predict what will happen.",
+          "source": {
+            "title": "Richard Sutton – Father of RL thinks LLMs are a dead end",
+            "url": "https://www.dwarkesh.com/p/richard-sutton",
+            "published": "2025-09-26",
+            "snippet": "A world model would enable you to predict what would happen. They have the ability to predict what a person would say. They don't have the ability to predict what will happen."
+          }
+        }
+      ]
+    },
+    "Researchers who want human-level AI should abandon generative AI.": {
+      "perspectives": [
+        {
+          "person": "Andrej Karpathy",
+          "stance": "disagrees",
+          "summary": "Language models come first: pretraining supplies the representations everything else builds on.",
+          "quote": "You have to get the language model first, you have to get the representations first, and you have to do that by all the pre-training and all the LLM stuff.",
+          "source": {
+            "title": "Andrej Karpathy — AGI is still a decade away",
+            "url": "https://www.dwarkesh.com/p/andrej-karpathy",
+            "published": "2025-10-17",
+            "snippet": "You have to get the language model first, you have to get the representations first, and you have to do that by all the pre-training and all the LLM stuff."
+          }
+        },
+        {
+          "person": "Andrej Karpathy",
+          "stance": "complicates",
+          "summary": "Animals don't learn the world from scratch by observation either: they start heavily pre-wired.",
+          "quote": "Animal brains are nowhere near the blank slate they appear to be at birth.",
+          "source": {
+            "title": "Animals vs Ghosts",
+            "url": "https://karpathy.bearblog.dev/animals-vs-ghosts/",
+            "published": "2025-10-01",
+            "snippet": "Animal brains are nowhere near the blank slate they appear to be at birth."
+          }
+        }
+      ]
+    }
+  }
+}

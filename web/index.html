@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Common Ground</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='12' cy='16' r='9' fill='%2322c55e' fill-opacity='.85'/%3E%3Ccircle cx='20' cy='16' r='9' fill='%2360a5fa' fill-opacity='.85'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><circle cx="12" cy="16" r="9"/><circle cx="20" cy="16" r="9"/></svg>
+      <div>
+        <h1>Common Ground</h1>
+        <p class="tagline">Facts get checked. Worldviews get heard. You decide.</p>
+      </div>
+    </div>
+
+    <div class="controls">
+      <select id="source" aria-label="Audio source"></select>
+      <button id="start" class="primary" type="button"><span class="dot"></span><span class="label">Start</span></button>
+    </div>
+
+    <div class="status" id="status" aria-live="polite"></div>
+
+    <div class="toggles">
+      <button id="recap-show" class="icon-btn" type="button" title="Common ground: what's settled and where people differ (S)">◎</button>
+      <button id="present" class="icon-btn" type="button" title="Presentation mode (P)">⛶</button>
+      <button id="sound" class="icon-btn" type="button" title="Sound on false claims">🔇</button>
+      <button id="theme" class="icon-btn" type="button" title="Light / dark">◐</button>
+    </div>
+  </header>
+
+  <section class="voices-bar">
+    <label for="voice-input">Bring in voices</label>
+    <div id="voice-chips" class="chips"></div>
+    <input id="voice-input" placeholder="Add a person, e.g. Andrej Karpathy, and press Enter" autocomplete="off">
+    <span class="hint">On contested claims, their takes come up first.</span>
+  </section>
+
+  <main>
+    <section class="pane transcript-pane">
+      <div class="pane-head">
+        <h2>Transcript</h2>
+        <div class="legend">
+          <span class="lg v-true">✓ True</span><span class="lg v-false">✕ False</span><span class="lg v-misleading">! Misleading</span><span class="lg v-unverifiable">? Unverified</span><span class="lg k-contested">⇄ Contested</span><span class="lg k-value">◆ Value</span><span class="lg unchecked">Unmarked: not a claim, not checked</span>
+        </div>
+      </div>
+      <div id="stage" class="stage" hidden>
+        <div id="stage-media" class="stage-media"></div>
+        <div id="stage-status" class="stage-status"><span class="dot"></span><span class="text">Listening</span></div>
+      </div>
+      <div id="transcript" class="transcript">
+        <div class="empty" id="transcript-empty">
+          <p class="empty-title">Pick a source and press Start.</p>
+          <p>Statements are checked sentence by sentence as people talk. Facts get a verdict with sources. Contested claims and values get the other side, in the words of the people who hold it.</p>
+          <p class="muted">The demo scripts type out a scripted conversation and run it through the same pipeline.</p>
+        </div>
+      </div>
+      <div id="caption" class="caption" hidden><span class="caption-speaker"></span><span class="caption-text"></span></div>
+      <div id="chyron" class="chyron" hidden></div>
+      <form id="say" class="say" autocomplete="off">
+        <input id="say-speaker" list="speaker-list" value="Me" aria-label="Speaker" class="say-speaker">
+        <datalist id="speaker-list"></datalist>
+        <input id="say-text" placeholder="Type something a speaker said, then Enter" aria-label="Statement">
+        <button type="submit">Send</button>
+      </form>
+    </section>
+
+    <aside class="pane claims-pane">
+      <div class="pane-head">
+        <h2>Claims</h2>
+        <div class="filters" id="filters">
+          <button data-filter="all" class="on" type="button">All</button>
+          <button data-filter="fact" type="button">Facts</button>
+          <button data-filter="contested" type="button">Contested</button>
+          <button data-filter="value" type="button">Values</button>
+        </div>
+      </div>
+      <div id="stats" class="stats"></div>
+      <div id="scoreboard" class="scoreboard"></div>
+      <div id="cards" class="cards">
+        <div class="empty" id="cards-empty"><p>Claims appear here the moment they're spoken.</p></div>
+      </div>
+    </aside>
+  </main>
+
+  <section id="recap" class="recap" hidden aria-labelledby="recap-title">
+    <div class="recap-panel">
+      <header class="recap-head">
+        <div>
+          <h2 id="recap-title">Common ground</h2>
+          <p class="recap-sub" id="recap-sub"></p>
+        </div>
+        <button id="recap-close" class="icon-btn" type="button" title="Close (Esc)">✕</button>
+      </header>
+      <div class="recap-grid">
+        <section class="recap-col settled"><h3>Facts, checked</h3><p class="recap-note">What the evidence settles, whoever said it.</p><ol id="recap-facts"></ol></section>
+        <section class="recap-col open"><h3>Open questions</h3><p class="recap-note">No verdict. Who stands where.</p><ol id="recap-questions"></ol></section>
+        <section class="recap-col values"><h3>Values</h3><p class="recap-note">Not scored. That part is yours.</p><ol id="recap-values"></ol></section>
+      </div>
+    </div>
+  </section>
+
+  <input id="video-file" type="file" accept="video/*,audio/*" hidden>
+  <div id="toasts" class="toasts" aria-live="assertive"></div>
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>

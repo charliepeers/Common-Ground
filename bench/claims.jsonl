@@ -1,0 +1,37 @@
+{"id": "t01", "text": "Water boils at 100 degrees Celsius at sea level.", "kind": ["fact"], "verdicts": ["true"], "note": ""}
+{"id": "t02", "text": "The Apollo 11 Moon landing happened in 1969.", "kind": ["fact"], "verdicts": ["true"], "note": ""}
+{"id": "t03", "text": "Mount Everest is the highest mountain above sea level.", "kind": ["fact"], "verdicts": ["true"], "note": ""}
+{"id": "t04", "text": "The Pacific is the largest ocean on Earth.", "kind": ["fact"], "verdicts": ["true"], "note": ""}
+{"id": "t05", "text": "Joe Biden was the 46th president of the United States.", "kind": ["fact"], "verdicts": ["true"], "note": ""}
+{"id": "t06", "text": "Donald Trump is the 47th president of the United States.", "kind": ["fact"], "verdicts": ["true"], "note": "true since 2025-01-20; depends on today's date"}
+{"id": "t07", "text": "Light from the Sun takes about eight minutes to reach Earth.", "kind": ["fact"], "verdicts": ["true"], "note": "about 8 min 20 s"}
+{"id": "t08", "text": "An adult human skeleton has 206 bones.", "kind": ["fact"], "verdicts": ["true"], "note": ""}
+{"id": "t09", "text": "The Berlin Wall fell in 1989.", "kind": ["fact"], "verdicts": ["true"], "note": ""}
+{"id": "t10", "text": "Canberra is the capital of Australia.", "kind": ["fact"], "verdicts": ["true"], "note": ""}
+{"id": "t11", "text": "Mercury is the closest planet to the Sun.", "kind": ["fact"], "verdicts": ["true"], "note": ""}
+{"id": "t12", "text": "The Treaty of Versailles was signed in 1919.", "kind": ["fact"], "verdicts": ["true"], "note": ""}
+{"id": "f01", "text": "Joe Biden is the 47th president of the United States.", "kind": ["fact"], "verdicts": ["false"], "note": "he was the 46th"}
+{"id": "f02", "text": "Sydney is the capital of Australia.", "kind": ["fact"], "verdicts": ["false"], "note": ""}
+{"id": "f03", "text": "The Great Wall of China is the only human-made structure visible from space.", "kind": ["fact"], "verdicts": ["false", "misleading"], "note": ""}
+{"id": "f04", "text": "Humans only use 10 percent of their brains.", "kind": ["fact"], "verdicts": ["false"], "note": ""}
+{"id": "f05", "text": "Lightning never strikes the same place twice.", "kind": ["fact"], "verdicts": ["false"], "note": ""}
+{"id": "f06", "text": "The Berlin Wall fell in 1991.", "kind": ["fact"], "verdicts": ["false"], "note": "1989"}
+{"id": "f07", "text": "Water boils at 50 degrees Celsius at sea level.", "kind": ["fact"], "verdicts": ["false"], "note": ""}
+{"id": "f08", "text": "Mount Everest is more than 10,000 meters tall.", "kind": ["fact"], "verdicts": ["false"], "note": "about 8,849 m"}
+{"id": "f09", "text": "Venus is the closest planet to the Sun.", "kind": ["fact"], "verdicts": ["false"], "note": ""}
+{"id": "f10", "text": "Albert Einstein won the Nobel Prize for his theory of relativity.", "kind": ["fact"], "verdicts": ["false", "misleading"], "note": "it was for the photoelectric effect"}
+{"id": "f11", "text": "Goldfish only have a three-second memory.", "kind": ["fact"], "verdicts": ["false"], "note": ""}
+{"id": "f12", "text": "Kamala Harris won the 2024 US presidential election.", "kind": ["fact"], "verdicts": ["false"], "note": ""}
+{"id": "u01", "text": "My cousin ran a marathon in under three hours last spring.", "kind": ["fact", "none"], "verdicts": ["unverifiable"], "note": "personal"}
+{"id": "u02", "text": "Our school's robotics team won the state championship last year.", "kind": ["fact", "none"], "verdicts": ["unverifiable"], "note": "no school named"}
+{"id": "c01", "text": "Large language models can't really reason.", "kind": ["contested"], "verdicts": [], "note": ""}
+{"id": "c02", "text": "AGI will arrive before 2030.", "kind": ["contested"], "verdicts": [], "note": "forecast"}
+{"id": "c03", "text": "Remote work makes people less productive.", "kind": ["contested"], "verdicts": [], "note": ""}
+{"id": "c04", "text": "Social media is the main cause of the teen mental health crisis.", "kind": ["contested"], "verdicts": [], "note": ""}
+{"id": "v01", "text": "We should raise the minimum wage.", "kind": ["value"], "verdicts": [], "note": ""}
+{"id": "v02", "text": "The government should spend more on space exploration than on the military.", "kind": ["value"], "verdicts": [], "note": ""}
+{"id": "v03", "text": "Capital punishment is morally wrong.", "kind": ["value"], "verdicts": [], "note": ""}
+{"id": "n01", "text": "Hey, can everyone hear me okay?", "kind": ["none"], "verdicts": [], "note": ""}
+{"id": "n02", "text": "Let's grab lunch after this.", "kind": ["none"], "verdicts": [], "note": ""}
+{"id": "n03", "text": "I'm really excited about this project.", "kind": ["none"], "verdicts": [], "note": ""}
+{"id": "n04", "text": "Who wants to present the first slide?", "kind": ["none"], "verdicts": [], "note": ""}
