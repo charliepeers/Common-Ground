@@ -60,7 +60,7 @@ async def test_check_streams_claims_with_sources_resolved_and_sends_the_right_re
     async def on_done(i, data):
         done.append((i, data))
 
-    timing = await llm.check("line", "Alex", [("Sam", "before")], SOURCES, ["Andrej Karpathy"], True, on_early, on_done)
+    timing = await llm.check("line", "Alex", [("Sam", "before")], SOURCES, True, on_early, on_done)
     assert [i for i, _ in early] == [0, 1] and [i for i, _ in done] == [0, 1]
     assert done[0][1]["sources"] == [SOURCES[1].as_dict()]  # dedupes ids, drops out-of-range ones
     assert "source_ids" not in done[0][1]
@@ -74,7 +74,7 @@ async def test_check_streams_claims_with_sources_resolved_and_sends_the_right_re
     assert request["output_config"]["format"]["type"] == "json_schema"
     assert "temperature" not in request
     user = request["messages"][0]["content"]
-    assert "Requested voices: Andrej Karpathy" in user and "[2] NASA (nasa.gov, 2023-01-01)" in user
+    assert "[2] NASA (nasa.gov, 2023-01-01)" in user
 
 
 async def test_fast_mode_refused_falls_back_and_stays_off():
@@ -84,10 +84,10 @@ async def test_fast_mode_refused_falls_back_and_stays_off():
     async def nothing(i, data):
         pass
 
-    await llm.check("hi", "A", [], [], [], False, nothing, nothing)
+    await llm.check("hi", "A", [], [], False, nothing, nothing)
     assert llm.fast is False
     assert client.requests[1].get("speed") is None and "fast-mode-2026-02-01" not in client.requests[1]["betas"]
-    await llm.check("hi", "A", [], [], [], False, nothing, nothing)
+    await llm.check("hi", "A", [], [], False, nothing, nothing)
     assert len(client.requests) == 3 and client.requests[2].get("speed") is None
 
 

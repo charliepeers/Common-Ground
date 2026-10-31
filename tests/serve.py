@@ -35,7 +35,7 @@ class FixtureBackend:
             raise LookupError(f"not in the test data: {key}")
         return json.loads(json.dumps(found))  # a copy, so callers can't edit the test data
 
-    async def check(self, line, speaker, context, voices, on_early, on_done) -> dict:
+    async def check(self, line, speaker, context, on_early, on_done) -> dict:
         for i, claim in enumerate(self._lookup(self.lines, line).get("claims", [])):
             await on_early(i, {k: claim[k] for k in ("quote", "claim", "kind")})
             await on_done(i, claim)
@@ -47,7 +47,7 @@ class FixtureBackend:
     async def pushback(self, claim: dict, verdict: dict, argument: str) -> dict:
         return {**self._lookup(self.pushbacks, claim["claim"]), "method": self.evidence}
 
-    async def perspectives(self, claim: dict, voices: list[str]) -> dict:
+    async def perspectives(self, claim: dict) -> dict:
         return self._lookup(self.takes, claim["claim"])
 
     async def name_speakers(self, lines: list[tuple[str, str]]) -> list[dict]:

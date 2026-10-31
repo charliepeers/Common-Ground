@@ -16,7 +16,6 @@ log = logging.getLogger("cg.session")
 Emit = Callable[[dict], Awaitable[None]]
 CONTEXT_LINES = 6
 MAX_CLAIMS_PER_LINE = 3
-MAX_VOICES = 4
 ANONYMOUS = re.compile(r"^Speaker [A-Z0-9]+$")  # how diarization labels people it can't name
 NAMING_EVERY = 4  # lines between attempts to name anonymous speakers
 
@@ -40,7 +39,6 @@ class Session:
     def __init__(self, emit: Emit, backend, max_parallel: int = 8):
         self.emit = emit
         self.backend = backend
-        self.voices: list[str] = []
         self.names: dict[str, str] = {}  # "Speaker 1" -> "Yann LeCun", so Claude knows who is talking
         self.lines: list[dict] = []
         self.claims: dict[str, dict] = {}
@@ -59,9 +57,6 @@ class Session:
         task = asyncio.create_task(coro)
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
-
-    def set_voices(self, names: list[str]) -> None:
-        self.voices = [n.strip() for n in names if n.strip()][:MAX_VOICES]
 
     def rename(self, speaker: str, name: str) -> None:
         if speaker and name.strip():
@@ -166,7 +161,7 @@ class Session:
         named = [(self.who(speaker), text) for speaker, text in context]
         try:
             async with self._limit:
-                await self.backend.check(line["text"], self.who(line["speaker"]), named, list(self.voices), on_early, on_done)
+                await self.backend.check(line["text"], self.who(line["speaker"]), named, on_early, on_done)
         except Exception as err:
             log.exception("check failed")
             await self.emit({"type": "error", "message": f"Couldn't check that line. {describe(err)}"})
@@ -194,9 +189,7 @@ class Session:
     async def _perspectives(self, claim: dict, start: float) -> None:
         try:
             async with self._limit:
-                result = await self.backend.perspectives(self._named(claim), list(self.voices))
-        except NotRecorded:
-            result = {"perspectives": []}
+                result = await self.backend.perspectives(self._named(claim))
         except Exception as err:
             log.warning("perspectives failed for %r: %s", claim["claim"], err)
             result = {"perspectives": [], "note": describe(err)}

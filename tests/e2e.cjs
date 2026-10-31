@@ -14,11 +14,7 @@ const problems = [];
 const check = (ok, message) => { if (!ok) problems.push(message); console.log(`${ok ? 'ok  ' : 'FAIL'} ${message}`); };
 
 // Types lines in by hand, the way anyone can check a statement without speech-to-text.
-async function typeIn(page, lines, voices = []) {
-  for (const name of voices) {
-    await page.fill('#voice-input', name);
-    await page.press('#voice-input', 'Enter');
-  }
+async function typeIn(page, lines) {
   for (const line of lines) {
     await page.fill('#say-speaker', line.speaker);
     await page.fill('#say-text', line.text);
@@ -50,14 +46,14 @@ async function openRecap(page) {
   await page.waitForSelector('body[data-connected="true"]', { timeout: 10000 });
   check(await page.locator('.pill.warn', { hasText: 'test data, not model output' }).count() === 1, 'test data is labeled as such');
   check(await count('#status .pill') === 1, 'no status pills beyond the test-data label');
-  check(await count('#source, #filters, .legend, #chyron, #stage, #recap-show, #sound, #theme, #present, .latency') === 0,
-    'microphone only: no source menu, filters, legend, pop-ups or header icons');
+  check(await count('#source, #filters, .legend, #chyron, #stage, #recap-show, #sound, #theme, #present, .latency, #voice-input') === 0,
+    'microphone only: no source menu, voices bar, filters, legend, pop-ups or header icons');
   const header = await page.locator('.topbar .controls button').allTextContents();
   check(header.join('|') === 'Clear|Start', `Clear and Start sit at the top right (${header.join(', ')})`);
 
   // Facts: a study-group conversation
   const study = conversation('study-group');
-  await typeIn(page, study.lines.slice(0, 1), study.voices);
+  await typeIn(page, study.lines.slice(0, 1));
   await page.waitForSelector('.card.v-false', { timeout: 15000 });
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${shots}/1-first-false-claim.png` });
@@ -137,13 +133,11 @@ async function openRecap(page) {
   await page.waitForSelector('.card.v-false', { timeout: 15000 });
   check(!(await page.locator('.card.v-false').textContent()).includes('Said before'), 'after clear, the same claim is checked fresh');
 
-  // Worldviews: LeCun's own words, with Karpathy pinned as a voice
+  // Worldviews: LeCun's own words, and how the most credible people see them
   await page.reload();
   await page.waitForSelector('body[data-connected="true"]');
   const lecture = conversation('ai-lecture');
-  // Pin someone the test data lists after others, so "pinned voices first" is really tested
-  await typeIn(page, lecture.lines.slice(0, 1), ['Ilya Sutskever']);
-  check(await page.locator('#voice-chips .chip', { hasText: 'Ilya Sutskever' }).count() === 1, 'a pinned voice shows as a chip');
+  await typeIn(page, lecture.lines.slice(0, 1));
   await page.waitForSelector('.take', { timeout: 20000 });
   await page.waitForTimeout(600);
   await page.screenshot({ path: `${shots}/4-lecture-perspectives.png` });
@@ -154,8 +148,6 @@ async function openRecap(page) {
   check(await count('.take-source[href^="https://"]') === 10, 'every take links to its source');
   check(await count('.take.s-disagrees') >= 1 && await count('.take.s-agrees') >= 1, 'takes span agree and disagree');
   check(await count('mark.m-contested') === 3, 'contested claims are highlighted in the transcript');
-  const catTakes = await page.locator('.card', { hasText: 'house cat' }).locator('.take .person').allTextContents();
-  check(catTakes[0] === 'Ilya Sutskever' && catTakes.length === 3, `a pinned voice's take comes first (${catTakes.join(', ')})`);
   await openRecap(page);
   check(await count('#recap #recap-questions li') === 3 && await count('#recap #recap-questions .voice') >= 6, 'recap shows the open questions and who stands where');
   await page.waitForTimeout(900);

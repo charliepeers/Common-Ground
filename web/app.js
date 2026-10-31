@@ -30,7 +30,6 @@ const state = {
   speakers: new Map(),
   lastBubble: null,
   t0: null,
-  voices: [],
   running: null,
   pending: [], // messages sent while the connection was still opening
 };
@@ -79,7 +78,6 @@ function connect() {
     if (state.ws !== ws) return;
     state.connected = true;
     renderStatus();
-    if (state.voices.length) send({ type: 'voices', names: state.voices });
     for (const [raw, s] of state.speakers) if (s.label !== raw) send({ type: 'rename', speaker: raw, name: s.label });
     for (const message of state.pending.splice(0)) send(message);
   });
@@ -559,16 +557,14 @@ function debateBody(claim) {
   if (claim.crux) row.append(h('span', 'verdict-text', claim.crux));
   card.append(row);
   if (claim.perspectives == null) {
-    const first = state.voices.length ? `, ${state.voices.join(', ')} first` : '';
-    card.append(h('p', 'working', `Finding how others see it${first}…`));
+    card.append(h('p', 'working', 'Finding the most credible voices on this…'));
     return;
   }
   if (!claim.perspectives.length) {
     card.append(h('p', 'no-takes', claim.perspectivesNote || 'No sourced takes found. This one is yours to weigh.'));
   } else {
     const takes = h('div', 'takes');
-    const pinned = (p) => (state.voices.includes(p.person) ? 0 : 1); // the voices you brought in come first
-    [...claim.perspectives].sort((a, b) => pinned(a) - pinned(b)).forEach((p, i) => {
+    claim.perspectives.forEach((p, i) => {
       const take = h('div', `take s-${p.stance}`);
       take.style.animationDelay = `${i * 90}ms`;
       const head = h('div', 'take-head');
@@ -661,22 +657,6 @@ function renderStatus() {
   document.body.dataset.connected = state.connected; // read by the browser test
   const pills = state.config.test_data ? [h('span', 'pill warn', 'Test data, not model output')] : []; // only under tests/serve.py
   $('#status').replaceChildren(...pills);
-}
-
-function renderVoices() {
-  $('#voice-chips').replaceChildren(...state.voices.map((name) => {
-    const chip = h('span', 'chip', name);
-    const remove = h('button', null, '×', { type: 'button', 'aria-label': `Remove ${name}` });
-    remove.addEventListener('click', () => setVoices(state.voices.filter((v) => v !== name)));
-    chip.append(remove);
-    return chip;
-  }));
-}
-
-function setVoices(names) {
-  state.voices = [...new Set(names.map((n) => n.trim()).filter(Boolean))].slice(0, 4);
-  renderVoices();
-  send({ type: 'voices', names: state.voices });
 }
 
 // ---------- the microphone ----------
@@ -836,13 +816,6 @@ async function init() {
     if (!text) return;
     say($('#say-speaker').value.trim() || 'Me', text);
     $('#say-text').value = '';
-  });
-  $('#voice-input').addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    const added = event.target.value.split(',');
-    event.target.value = '';
-    setVoices([...state.voices, ...added]);
   });
   $('#recap-close').addEventListener('click', closeRecap);
   document.addEventListener('keydown', (event) => {

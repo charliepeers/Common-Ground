@@ -118,8 +118,6 @@ async def listen(ws: WebSocket):
             kind = data.get("type")
             if kind == "say":
                 await session.hear(data.get("speaker") or "Speaker", data.get("text", ""))
-            elif kind == "voices":
-                session.set_voices(data.get("names", []))
             elif kind == "rename":
                 session.rename(data.get("speaker", ""), data.get("name", ""))
             elif kind == "pushback":

@@ -59,7 +59,7 @@ On screen:
 - **The transcript** is a two-line strip that stays on the latest words; scroll it up to read back.
 - **Cards** lead with the exact words that were said. A plain fact gets a small verdict and, when it isn't true, one line on what is, with its sources cited inline as one chip (`en.wikipedia +2`); hovering the chip shows each page's title, excerpt and site logo. Contested claims and values show the other voices, in their own words.
 - **Push back** asks for a deeper re-check; **Dismiss** removes a card, its highlight and its place in the tally.
-- **Clear** (top right, next to Start) starts over: an empty page and a fresh session on the server, so nothing from the old conversation carries into the new one. Voices you brought in stay.
+- **Clear** (top right, next to Start) starts over: an empty page and a fresh session on the server, so nothing from the old conversation carries into the new one.
 - **Keys:** S opens the recap ("Common ground": the facts checked, false first; the open questions with who stands where; the values that are yours to weigh). P toggles presentation mode. Esc closes the recap.
 
 **On a phone:** browsers only allow the microphone over HTTPS, so open the app through a tunnel. Then open the https link it prints:
@@ -79,7 +79,7 @@ flowchart LR
   X --> C[One streamed LLM call, Claude Sonnet 5.5 by default: find, sort and judge the claims]
   C -->|fact with sources| V[Verdict]
   C -->|fact the search missed| E[Targeted search, then verdict] --> V
-  C -->|contested or value| P[Search named voices and X] --> Q[Claude picks takes; quotes checked verbatim] --> W[Perspectives]
+  C -->|contested or value| P[Search the most credible voices, and X] --> Q[Claude picks takes; quotes checked verbatim] --> W[Perspectives]
   V --> UI[Browser]
   W --> UI
   UI -->|push back| D[Claude searches the web itself] --> V
@@ -102,7 +102,7 @@ The pieces:
 5. **Claude layer (`server/llm.py`, `prompts.py`, `schemas.py`).** Each role has its own model (see "Model and vendor choices"); all calls use JSON-schema outputs. Push-back uses Claude's own web search tool, with a strict `submit_verdict` tool for the answer.
 6. **Search (`server/search.py`).** Exa `lite`, Exa's type for real-time and voice use.
    - Facts: 10 results per search, with an `objective` that tells Exa to rank primary and authoritative sources first (official pages, data, research, reference works, established news). Claude cites every result that backs a verdict, up to 5, most authoritative first.
-   - Contested claims and values: searches for the named voices, plus X itself on the topic, so takes come from people's own posts as well as the open web. X posts feed this lane, not verdicts: a post saying something doesn't make it true.
+   - Contested claims and values: nobody picks the voices by hand. When Claude sorts a claim it names up to three of the most credible people on that exact question who have publicly argued a different view, and the search looks for them, plus X itself on the topic, so takes come from people's own posts as well as the open web. X posts feed this lane, not verdicts: a post saying something doesn't make it true.
    - Each request sends only what `lite` accepts, and the server logs any `warnings` Exa returns about ignored fields.
 
 ### When does a statement get sent?
@@ -295,7 +295,7 @@ On the independent [Pipecat streaming benchmark](https://github.com/pipecat-ai/s
 
 1. **Facts.** Someone says *"Joe Biden is the 47th president, right?"* (he was the 46th). The card shows those words, False, what's actually so, and its sources.
 2. **Push back.** Dispute the verdict and watch the re-check.
-3. **Worldviews.** Pin *Andrej Karpathy* as a voice, then say *"LLMs can't really reason."* The card fills with how others see it, Karpathy first, each quote linked.
+3. **Worldviews.** Say *"LLMs can't really reason."* The card fills with how the most credible people on that question see it, in their own words, each quote linked.
 4. **Common ground.** Press S for the recap: what was false, which questions stay open and who stands where, and the values the app leaves to you.
 
 ## Known limits

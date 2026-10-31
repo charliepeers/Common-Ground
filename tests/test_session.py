@@ -19,8 +19,8 @@ class FakeBackend:
         self.lines = lines
         self.calls = []
 
-    async def check(self, line, speaker, context, voices, on_early, on_done):
-        self.calls.append(("check", line, context, voices))
+    async def check(self, line, speaker, context, on_early, on_done):
+        self.calls.append(("check", line, context))
         if line not in self.lines:
             raise LookupError(line)
         for i, claim in enumerate(self.lines[line]):
@@ -32,15 +32,17 @@ class FakeBackend:
         self.calls.append(("escalate", claim["claim"]))
         return {"verdict": "true", "confidence": "high", "explanation": "found it", "correction": "", "sources": [SRC], "method": "fake"}
 
-    async def perspectives(self, claim, voices):
-        self.calls.append(("perspectives", claim["claim"], tuple(voices)))
+    async def perspectives(self, claim):
+        self.calls.append(("perspectives", claim["claim"], tuple(claim["voices"])))
+        if claim["claim"].startswith("Unreachable"):
+            raise ConnectionError("search is down")
         return {"perspectives": [{"person": "P", "stance": "disagrees", "summary": "s", "quote": "q", "source": SRC}], "timings": {}}
 
     async def pushback(self, claim, verdict, argument):
         return {"verdict": "misleading", "confidence": "medium", "explanation": "x", "correction": "y", "sources": [SRC], "note": "fair point"}
 
 
-async def run(lines, says, voices=()):
+async def run(lines, says):
     events = []
 
     async def emit(event):
@@ -48,7 +50,6 @@ async def run(lines, says, voices=()):
 
     backend = FakeBackend(lines)
     session = Session(emit, backend)
-    session.set_voices(list(voices))
     for speaker, text in says:
         await session.hear(speaker, text)
         await asyncio.sleep(0.01)
@@ -81,11 +82,17 @@ async def test_unsourced_or_unsure_claims_show_a_first_read_then_escalate():
 async def test_contested_claims_get_perspectives_not_verdicts():
     contested = {**fact("LLMs can't reason", verdict="unverifiable", sources=()), "kind": "contested",
                  "explanation": "crux", "query": "llm reasoning", "voices": ["Gary Marcus"]}
-    _, backend, events = await run({"talk": [contested]}, [("Yann", "talk")], voices=["Andrej Karpathy"])
+    _, backend, events = await run({"talk": [contested]}, [("Yann", "talk")])
     assert kinds(events) == ["line", "claim", "debate", "perspectives"]
     assert events[2]["crux"] == "crux"
-    assert backend.calls[0][3] == ["Andrej Karpathy"]
-    assert backend.calls[1] == ("perspectives", "LLMs can't reason.", ("Andrej Karpathy",))
+    assert backend.calls[1] == ("perspectives", "LLMs can't reason.", ("Gary Marcus",))  # the voices Claude chose
+
+
+async def test_a_failed_perspectives_search_shows_an_empty_card_with_the_reason():
+    contested = {**fact("Unreachable claim", verdict="unverifiable", sources=()), "kind": "contested", "voices": []}
+    _, _, events = await run({"talk": [contested]}, [("Yann", "talk")])
+    assert kinds(events) == ["line", "claim", "debate", "perspectives"]
+    assert events[-1]["perspectives"] == [] and "search is down" in events[-1]["note"]
 
 
 async def test_repeated_claims_reuse_the_settled_verdict():

@@ -169,7 +169,6 @@ class LLM:
         speaker: str,
         context: list[tuple[str, str]],
         sources: list[Source],
-        voices: list[str],
         searched: bool,
         on_early: OnClaim,
         on_done: OnClaim,
@@ -198,7 +197,7 @@ class LLM:
             max_tokens=8000,
             system=[{"type": "text", "text": prompts.check_system(today()), "cache_control": {"type": "ephemeral"}}],
             output_config={"effort": config.CHECK_EFFORT, "format": {"type": "json_schema", "schema": schemas.CHECK_SCHEMA}},
-            messages=[{"role": "user", "content": prompts.check_user(line, speaker, context, sources, voices, searched)}],
+            messages=[{"role": "user", "content": prompts.check_user(line, speaker, context, sources, searched)}],
         )
         timing["llm_ms"] = ms_since(start)
         if message.stop_reason in ("refusal", "max_tokens"):

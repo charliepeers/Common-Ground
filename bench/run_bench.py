@@ -51,7 +51,7 @@ async def run_item(backend: LiveBackend, item: dict) -> dict:
     async def on_done(i: int, data: dict) -> None:
         claims.append(data)
 
-    timings = await backend.check(item["text"], "Speaker", [], [], on_early, on_done)
+    timings = await backend.check(item["text"], "Speaker", [], on_early, on_done)
     kind, verdict, escalated = (claims[0]["kind"] if claims else "none"), "", False
     if claims and kind == "fact":
         result = claims[0]

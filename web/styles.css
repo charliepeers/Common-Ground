@@ -44,7 +44,7 @@ body {
   color: var(--text);
   font: 15px/1.5 var(--font);
   display: flex;
-  flex-direction: column; /* header, voices bar, then main takes the rest */
+  flex-direction: column; /* header, then main takes the rest */
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
@@ -68,12 +68,12 @@ button { cursor: pointer; }
 h1 { font: 700 19px/1.15 var(--brand); text-transform: uppercase; letter-spacing: -.005em; margin: 0; }
 .tagline { margin: 2px 0 0; color: var(--muted); font-size: 12.5px; white-space: nowrap; }
 .controls { display: flex; gap: 8px; flex: none; }
-.say input, .voices-bar input {
+.say input {
   height: 38px; padding: 0 14px;
   background: var(--card); border: 1px solid var(--border); border-radius: 999px;
   outline: none;
 }
-.say input:focus, .voices-bar input:focus { border-color: var(--ring); box-shadow: 0 0 0 3px var(--panel-2); }
+.say input:focus { border-color: var(--ring); box-shadow: 0 0 0 3px var(--panel-2); }
 .primary, .secondary {
   display: inline-flex; align-items: center; gap: 8px;
   height: 38px; padding: 0 18px; border-radius: 999px; font-weight: 500; white-space: nowrap;
@@ -97,23 +97,6 @@ h1 { font: 700 19px/1.15 var(--brand); text-transform: uppercase; letter-spacing
 }
 .icon-btn:hover { background: var(--panel-2); }
 
-/* ---------- voices ---------- */
-.voices-bar {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 10px 24px; border-bottom: 1px solid var(--border); background: var(--bg);
-  font-size: 13px;
-}
-.voices-bar label { color: var(--text); font-weight: 500; }
-.voices-bar input { flex: 0 1 340px; height: 32px; padding: 0 12px; font-size: 13px; }
-.voices-bar .hint { color: var(--muted); font-size: 12px; }
-.chips { display: flex; gap: 6px; flex-wrap: wrap; }
-.chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 4px 3px 10px; border-radius: 999px; font-size: 12.5px;
-  background: var(--contested-bg); color: var(--contested);
-}
-.chip button { border: none; background: none; color: inherit; opacity: .7; padding: 0 6px; }
-.chip button:hover { opacity: 1; }
 
 /* ---------- layout ---------- */
 /* One centered column: the transcript as a two-line strip, then the context. */
@@ -384,7 +367,7 @@ mark.flash { animation: flash 1s ease-out 2; }
 
 /* ---------- presentation mode (P) ---------- */
 body.present { font-size: 17px; }
-body.present .voices-bar, body.present .say { display: none; }
+body.present .say { display: none; }
 body.present .transcript { font-size: 17px; }
 body.present .card-quote { font-size: 19px; }
 body.present .caption { bottom: 0; font-size: 18px; }
@@ -409,8 +392,6 @@ body.present .caption { bottom: 0; font-size: 18px; }
   .tagline { white-space: normal; }
   .status { margin-left: 0; }
   .controls { margin-left: auto; }
-  .voices-bar { padding: 8px 16px; }
-  .voices-bar input { flex: 1 1 100%; }
   main { padding: 12px 16px; }
   .claims-pane { min-height: 50vh; }
   .cards { overflow: visible; }

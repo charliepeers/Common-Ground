@@ -41,7 +41,7 @@ For contested claims and values:
 - verdict "unverifiable", confidence "high", correction "", source_ids [], needs_search false.
 - explanation: the crux of the disagreement, at most 15 words.
 - query: a short topic phrase for finding other takes, like "whether LLMs can reason".
-- voices: up to 3 well-known people who have publicly argued a different or more complicated view on this exact question, and only people you're confident have. Include requested voices when they fit the topic.
+- voices: up to 3 of the most credible people on this exact question (researchers, practitioners, officials or writers with real standing on it) who have publicly argued a different or more complicated view, and only people you're confident have. These are the voices the listener will see, so choose the strongest, not the most famous.
 
 Rules:
 - A wrong red flag in front of an audience is worse than a missed one. Say "false" only when you're sure; otherwise "unverifiable", or set needs_search.
@@ -97,7 +97,7 @@ You get the claim, who said it, and excerpts from web pages that may contain oth
 - quote: an exact excerpt from that source's text, at most 40 words, copied character for character. It's checked against the page, and anything not verbatim is thrown away.
 - source_id: the number of the excerpt the quote comes from.
 
-Prefer disagreement and nuance over agreement: the listener already heard the speaker's side. Prefer the requested voices when their take is in the excerpts. Prefer people's own words (their posts on X, talks, essays) over a journalist's summary, and people with real standing on the question. Skip excerpts that don't speak to this claim, and return an empty list if nothing fits."""
+Prefer disagreement and nuance over agreement: the listener already heard the speaker's side. The voices listed were chosen as the most credible on this question; prefer their takes when the excerpts have them, but include anyone else of real standing that the excerpts quote. Prefer people's own words (their posts on X, talks, essays) over a journalist's summary, and people with real standing on the question. Skip excerpts that don't speak to this claim, and return an empty list if nothing fits."""
 
 
 NAME_SPEAKERS_SYSTEM = """\
@@ -144,15 +144,12 @@ def check_user(
     speaker: str,
     context: list[tuple[str, str]],
     sources: list[Source],
-    voices: list[str],
     searched: bool,
 ) -> str:
     parts = []
     if context:
         parts.append("Earlier lines:\n" + "\n".join(f"{who}: {text}" for who, text in context))
     parts.append(f'New line, spoken by {speaker}:\n"{line}"')
-    if voices:
-        parts.append("Requested voices: " + ", ".join(voices))
     if sources:
         parts.append("Search results for the new line:\n" + _results(sources))
     elif searched:
@@ -187,7 +184,7 @@ def perspectives_user(claim: str, speaker: str, crux: str, voices: list[str], so
     if crux:
         parts.append(f"The crux: {crux}")
     if voices:
-        parts.append("Requested voices: " + ", ".join(voices))
+        parts.append("Most credible voices to look for: " + ", ".join(voices))
     parts.append("Excerpts:\n" + (_results(sources) if sources else "(none)"))
     return "\n\n".join(parts)
 

@@ -49,7 +49,7 @@ class LiveBackend:
     def evidence(self) -> str:
         return "exa" if self.search else "claude-web-search"
 
-    async def check(self, line, speaker, context, voices, on_early, on_done) -> dict:
+    async def check(self, line, speaker, context, on_early, on_done) -> dict:
         """Searches the raw line first (no waiting on Claude to write a query), then one streamed Claude call."""
         timing: dict = {}
         sources: list[Source] = []
@@ -65,7 +65,7 @@ class LiveBackend:
             await on_done(i, {**data, "search_ms": timing.get("search_ms", 0)})
 
         timing.update(
-            await self.llm.check(line, speaker, context, sources, voices, self.search is not None, on_early, done)
+            await self.llm.check(line, speaker, context, sources, self.search is not None, on_early, done)
         )
         return timing
 
@@ -89,13 +89,14 @@ class LiveBackend:
         )
         return {**result, "method": "claude-web-search", "timings": {"llm_ms": ms_since(start)}}
 
-    async def perspectives(self, claim: dict, voices: list[str]) -> dict:
-        """Fans out searches for named voices and for the conversation on X, then picks takes."""
+    async def perspectives(self, claim: dict) -> dict:
+        """Searches for the most credible voices on the question (Claude names them when it sorts the claim)
+        and for the conversation on X, then picks takes."""
         if not self.search:
             return {"perspectives": [], "timings": {}, "note": "Perspectives need EXA_API_KEY."}
         start = time.perf_counter()
         topic = claim.get("query") or claim["claim"]
-        names = list(dict.fromkeys(voices + claim.get("voices", [])))[:4]
+        names = list(dict.fromkeys(claim.get("voices", [])))[:4]
         voices_search = partial(self.search.search, highlight_chars=1200, objective=VOICES_OBJECTIVE)
         jobs = [voices_search(f"{name} on {topic}", 3) for name in names]
         jobs += [voices_search(f"{name}: {topic}", 3, X_DOMAINS) for name in names[:2]]
