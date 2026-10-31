@@ -151,7 +151,14 @@ async function openRecap(page) {
   await page.waitForFunction(() => document.querySelectorAll('.takes').length === 4, null, { timeout: 15000 });
   check(await count('.card.k-contested') === 3 && await count('.card.k-value') === 1, '3 contested claims and 1 value');
   check(await count('.take') === 10, `10 sourced takes (${await count('.take')})`);
-  check(await count('.take .take-quote .source-chip[href^="https://"]') === 10, 'every take cites its source with the same chip as facts');
+  check(await count('.take .take-head .source-chip[href^="https://"]') === 10, 'every take cites its source with the same chip as facts');
+  const clamp = await page.evaluate(() => {
+    const quote = [...document.querySelectorAll('.take-quote')].sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
+    const before = quote.clientHeight;
+    quote.closest('.take').click();
+    return { before, after: quote.clientHeight, lineHeight: parseFloat(getComputedStyle(quote).lineHeight) };
+  });
+  check(clamp.before <= clamp.lineHeight * 2 + 1 && clamp.after > clamp.before, `takes are condensed to two lines and open on click (${clamp.before}px → ${clamp.after}px)`);
   check(await count('.take.s-disagrees') >= 1 && await count('.take.s-agrees') >= 1, 'takes span agree and disagree');
   const stanceColors = await page.evaluate(() => ['disagrees', 'complicates', 'agrees'].map((s) => getComputedStyle(document.querySelector(`.take.s-${s} .stance`)).color));
   check(new Set(stanceColors).size === 3, `disagrees, complicates and agrees each have their own color (${stanceColors.join(' / ')})`);

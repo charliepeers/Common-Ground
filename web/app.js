@@ -19,6 +19,7 @@ const VERDICT = {
 };
 const KIND = { contested: { label: 'Contested', icon: '⇄' }, value: { label: 'Value', icon: '◆' } };
 const STANCE = { disagrees: 'Disagrees', agrees: 'Agrees', complicates: 'Complicates' };
+const SHOWN_TAKES = 3; // more behind "Show N more"
 const SPEAKER_COLORS = ['#c14c8a', '#337ea9', '#cb912f', '#9065b0', '#9f6b53', '#d9730d'];
 
 const state = {
@@ -560,20 +561,33 @@ function debateBody(claim) {
   if (!claim.perspectives.length) {
     card.append(h('p', 'no-takes', claim.perspectivesNote || 'No sourced takes found. This one is yours to weigh.'));
   } else {
+    // Condensed: one row per person, the quote clamped to two lines. Click a take for all of it.
     const takes = h('div', 'takes');
     claim.perspectives.forEach((p, i) => {
-      const take = h('div', `take s-${p.stance}`);
-      take.style.animationDelay = `${i * 90}ms`;
+      const take = h('div', `take s-${p.stance}`, null, { title: 'Show the whole quote' });
+      take.style.animationDelay = `${i * 70}ms`;
+      take.hidden = i >= SHOWN_TAKES;
       const head = h('div', 'take-head');
       const avatar = h('span', 'avatar', initials(p.person));
       avatar.style.background = personColor(p.person);
       head.append(avatar, h('span', 'person', p.person), h('span', 'stance', STANCE[p.stance] ?? p.stance));
-      const quote = h('blockquote', 'take-quote', `“${p.quote}”`);
-      if (p.source?.url) quote.append(' ', sourceList([p.source])); // cited like a fact: a chip, details on hover
-      take.append(head, quote);
+      if (p.source?.url) head.append(sourceList([p.source])); // cited like a fact: a chip, details on hover
+      take.append(head, h('blockquote', 'take-quote', `“${p.quote}”`));
       if (p.summary) take.append(h('p', 'take-summary', p.summary));
+      take.addEventListener('click', (event) => {
+        if (!event.target.closest('a, .sources')) take.classList.toggle('open'); // not when using the source chip
+      });
       takes.append(take);
     });
+    const more = claim.perspectives.length - SHOWN_TAKES;
+    if (more > 0) {
+      const button = h('button', 'more-takes', `Show ${more} more`, { type: 'button' });
+      button.addEventListener('click', () => {
+        for (const take of takes.querySelectorAll('.take[hidden]')) take.hidden = false;
+        button.remove();
+      });
+      takes.append(button);
+    }
     card.append(takes);
   }
   const foot = h('div', 'card-foot');
