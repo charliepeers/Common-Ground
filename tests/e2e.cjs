@@ -91,6 +91,7 @@ async function openRecap(page) {
   await chip.hover();
   await page.waitForSelector('.sources.open .source-pop .pop-title', { timeout: 3000 });
   check((await page.locator('.sources.open .pop-title').textContent()).length > 0 && await count('.sources.open .pop-icons img') >= 1, 'hovering a source shows its title and site logos');
+  await page.waitForTimeout(250); // past the popover's fade-in
   await page.screenshot({ path: `${shots}/2c-source-popover.png` });
   await page.mouse.move(5, 5);
   await page.waitForFunction(() => !document.querySelector('.sources.open'), null, { timeout: 3000 });
