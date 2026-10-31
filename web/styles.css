@@ -98,7 +98,7 @@ h1 { font: 700 19px/1.15 var(--brand); text-transform: uppercase; letter-spacing
   box-shadow: inset 0 0 1px 1px #ffffff24, 0 0 0 1px #00000014, 0 2px 2px #0000000a;
 }
 .secondary:hover { filter: brightness(98%); }
-.pane-head .primary, .pane-head .secondary { height: 30px; padding: 0 12px; border-radius: 8px; font-size: 13px; } /* the small size, like .buy-button-small */
+.pane-head .secondary { height: 30px; padding: 0 12px; border-radius: 8px; font-size: 13px; } /* the small size, like .buy-button-small */
 .status { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
 .pill {
   font-size: 12px; padding: 4px 10px; border-radius: 999px; white-space: nowrap;
@@ -195,36 +195,6 @@ mark.flash { animation: flash 1s ease-out 2; }
 .card.provisional { border-style: dashed; }
 .card.focus { box-shadow: 0 0 0 2px var(--tone); }
 .badge.changed { animation: badge 320ms var(--ease-out); }
-/* A stack is one speaker's cards, newest on top. Behind it the older cards are only edges, tinted by
-   their verdict, so a false claim under a true one still shows. */
-.stack { position: relative; flex: none; }
-.stack[data-depth="1"]:not(.open) { margin-bottom: 9px; }
-.stack[data-depth="2"]:not(.open) { margin-bottom: 18px; }
-.deck { position: relative; }
-.stack.open .deck { display: flex; flex-direction: column; gap: 12px; }
-.deck .card { transition: transform 300ms var(--ease-out), opacity 200ms var(--ease-out), background-color 200ms var(--ease-out); }
-.deck .card > * { transition: visibility 0s linear 200ms; } /* the old top card stays readable while the new one lands */
-.stack.open .deck .card > * { transition: none; }
-.stack:not(.open) .card:first-child { position: relative; z-index: 3; }
-.stack:not(.open) .card:not(:first-child) {
-  position: absolute; inset: 0; overflow: hidden; cursor: pointer; box-shadow: none;
-  background: var(--tone-bg);
-  transform: translateY(calc(var(--depth) * 9px)) scale(calc(1 - var(--depth) * .03));
-  transform-origin: 50% 100%;
-  z-index: calc(3 - var(--depth));
-}
-.stack:not(.open) .card:not(:first-child) > * { visibility: hidden; }
-.stack:not(.open) .card:nth-child(n + 4) { opacity: 0; pointer-events: none; }
-.stack .card:has(.sources.open) { z-index: 4; }
-.stack-toggle {
-  position: absolute; top: 20px; right: 24px; z-index: 5;
-  border: none; border-radius: 999px; padding: 1px 10px; font-size: 12.5px;
-  background: var(--panel-2); color: var(--muted);
-  transition: transform 120ms var(--ease-out), background-color 150ms var(--ease-out), color 150ms var(--ease-out);
-}
-.stack-toggle:hover { background: var(--panel-3); color: var(--text); }
-.stack-toggle:active { transform: scale(.97); }
-
 .card-meta { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .speaker-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
 .card-speaker { color: var(--text); font-weight: 500; }
@@ -417,7 +387,7 @@ body.present .caption { bottom: 0; font-size: 18px; }
 
 /* ---------- animation ---------- */
 @keyframes rise { from { opacity: 0; transform: translateY(6px) scale(.98); } }
-@keyframes deal { from { opacity: 0; transform: translateY(-14px) scale(1.015); } } /* a card set down on the deck */
+@keyframes deal { from { opacity: 0; transform: translateY(-14px) scale(1.015); } } /* a new card set down on top */
 @keyframes drop { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
 @keyframes fade { from { opacity: 0; } }
 @keyframes pop { from { opacity: 0; transform: scale(.97); } }
@@ -438,7 +408,6 @@ body.present .caption { bottom: 0; font-size: 18px; }
   .transcript-pane { height: 55vh; }
   .claims-pane { height: auto; }
   .card { padding: 18px 18px 14px; }
-  .stack-toggle { top: 16px; right: 16px; }
   .claims-pane { min-height: 50vh; }
   .cards { overflow: visible; }
   .source-pop { width: min(340px, calc(100vw - 32px)); }

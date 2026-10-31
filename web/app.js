@@ -36,8 +36,6 @@ const state = {
   lines: new Map(),
   claims: new Map(),
   speakers: new Map(),
-  stacks: new Map(), // speaker -> their stack of cards
-  stackOrder: 0,
   lastBubble: null,
   t0: null,
   running: null,
@@ -267,31 +265,11 @@ function addClaim(event) {
     renderLine(line);
   }
   renderCard(claim);
-  stackCard(claim);
+  showCard(claim);
   updateStats();
 }
 
-// ---------- stacks: one deck per speaker, the newest card on top ----------
-
-function stackFor(raw) {
-  if (!state.stacks.has(raw)) {
-    const stack = h('div', 'stack');
-    stack.dataset.speaker = raw;
-    const toggle = h('button', 'stack-toggle', null, { type: 'button', title: 'Show or hide this speaker\'s earlier cards' });
-    toggle.addEventListener('click', () => setOpen(stack, !stack.classList.contains('open')));
-    const deck = h('div', 'deck');
-    deck.addEventListener('click', (event) => { // the edges behind the top card open it too
-      if (!stack.classList.contains('open') && event.target.closest('.card') !== deck.firstElementChild) setOpen(stack, true);
-    });
-    stack.append(toggle, deck);
-    $('#cards').append(stack);
-    state.stacks.set(raw, stack);
-  }
-  return state.stacks.get(raw);
-}
-
-// Runs a change, then slides each node from where it was to where it landed. The final position is
-// left to the layout and the stylesheet, so a card settling into the deck keeps its own transition.
+// Runs a change, then slides each node from where it was to where it landed.
 function flip(nodes, change) {
   const before = nodes.map((node) => node.getBoundingClientRect());
   change();
@@ -305,45 +283,10 @@ function flip(nodes, change) {
   });
 }
 
-function allStacks() {
-  return [...state.stacks.values()].filter((stack) => stack.isConnected);
-}
-
-// Puts each card at its depth, and an emptied stack away.
-function restack(stack) {
-  const cards = [...$('.deck', stack).children];
-  if (!cards.length) {
-    stack.remove();
-    if (state.stacks.get(stack.dataset.speaker) === stack) state.stacks.delete(stack.dataset.speaker);
-    return;
-  }
-  cards.forEach((card, i) => card.style.setProperty('--depth', Math.min(i, 3)));
-  stack.dataset.depth = Math.min(cards.length - 1, 2);
-  const open = stack.classList.contains('open');
-  const toggle = $('.stack-toggle', stack);
-  toggle.hidden = cards.length < 2;
-  toggle.textContent = open ? 'Show less' : `${cards.length - 1} more`;
-  toggle.setAttribute('aria-expanded', open);
-}
-
-// A new card lands on its speaker's deck, and that deck moves to the top of the list. The order is
-// CSS, not the DOM: moving a node would restart its animations and drop focus from a half-typed push-back.
-function stackCard(claim) {
-  const stack = stackFor(claim.speaker);
-  if ($('.pushback-form', stack)) stack.classList.add('open'); // never bury what someone is typing
-  flip(allStacks(), () => {
-    $('.deck', stack).prepend(claim.card);
-    stack.style.order = --state.stackOrder;
-    restack(stack);
-  });
-}
-
-function setOpen(stack, open) {
-  const others = allStacks().filter((node) => node !== stack);
-  flip([...$('.deck', stack).children, ...others], () => {
-    stack.classList.toggle('open', open);
-    restack(stack);
-  });
+// A new card goes on top; the cards below slide down to make room instead of jumping.
+function showCard(claim) {
+  const list = $('#cards');
+  flip([...list.children], () => list.prepend(claim.card));
 }
 
 function setVerdict(event) {
@@ -583,16 +526,7 @@ function dismissClaim(claim) {
     renderLine(line);
   }
   updateStats();
-  // The last card takes its stack with it. On a closed deck the next card simply comes forward.
-  const stack = claim.card.closest('.stack');
-  const alone = claim.card.parentElement.childElementCount === 1;
-  if (alone) state.stacks.delete(claim.speaker);
-  const gone = alone ? leave(stack) : stack.classList.contains('open') ? leave(claim.card) : fadeOut(claim.card);
-  gone.then(() => {
-    flip(allStacks(), () => {
-      claim.card.remove();
-      restack(stack);
-    });
+  leave(claim.card).then(() => {
     if (!state.claims.size) $('#cards').replaceChildren(empties.cards);
   });
 }
@@ -730,8 +664,6 @@ function toggleTake(take) {
 function focusCard(id) {
   const claim = state.claims.get(id);
   if (!claim) return;
-  const stack = claim.card.closest('.stack');
-  if (claim.card.previousElementSibling) setOpen(stack, true); // it's behind the top card
   claim.card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   claim.card.classList.add('focus');
   setTimeout(() => claim.card.classList.remove('focus'), 1500);
@@ -895,7 +827,6 @@ function clearConversation() {
   state.lines.clear();
   state.claims.clear();
   state.speakers.clear();
-  state.stacks.clear();
   state.lastBubble = null;
   state.t0 = null;
   setCaption('', '');

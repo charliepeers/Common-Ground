@@ -50,12 +50,11 @@ Then start the server:
 .venv/bin/uvicorn server.app:app --port 8000
 ```
 
-Open http://localhost:8000 and press **Start**, at the top of the Transcript panel. One microphone listens to the whole room, and voices are told apart by diarization (see "Telling voices apart").
+Open http://localhost:8000 and press **Start**, at the top right. One microphone listens to the whole room, and voices are told apart by diarization (see "Telling voices apart").
 
 On screen:
 
 - **The transcript** is a two-line strip that stays on the latest words; scroll it up to read back.
-- **Stacks:** each speaker's cards sit in one deck, newest on top, and the deck with the latest card comes first. Older cards show as edges, tinted by their verdict, so a false claim under a true one still shows. "2 more", or a click on an edge, opens the deck; clicking a highlight brings out its card.
 - **Icons** read by how solid a claim is. A fact is one disc, filled as far as the evidence goes: whole for True or False, a slice gone for Missing context, hollow for Unverified. Contested claims and values are two positions: views that overlap, and two weights on a balance.
 - **Cards** lead with the exact words that were said. A plain fact gets a small verdict and, when it isn't true, one line on what is, with its sources cited inline as one chip (`en.wikipedia +1`); hovering the chip shows each page's title, excerpt and site logo. A value shows what's at stake and leaves it to you. A contested claim lists the other voices, one row per person: who, where they stand, a one-line summary and the source. Click a row to open it to the person's exact words and the page they come from.
 - **Push back** asks for a deeper re-check; **Dismiss** removes a card, its highlight and its place in the tally.

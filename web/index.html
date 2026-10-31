@@ -14,6 +14,10 @@
     </div>
 
     <div class="status" id="status" aria-live="polite"></div>
+
+    <div class="controls">
+      <button id="start" class="primary" type="button" title="Listen through the microphone"><span class="dot"></span><span class="label">Start</span></button>
+    </div>
   </header>
 
 
@@ -21,10 +25,7 @@
     <section class="pane transcript-pane">
       <div class="pane-head">
         <h2>Transcript</h2>
-        <div class="controls">
-          <button id="clear" class="secondary" type="button" title="Clear the conversation and start over">Clear</button>
-          <button id="start" class="primary" type="button" title="Listen through the microphone"><span class="dot"></span><span class="label">Start</span></button>
-        </div>
+        <button id="clear" class="secondary" type="button" title="Clear the conversation and start over">Clear</button>
       </div>
       <div id="transcript" class="transcript">
         <div class="empty" id="transcript-empty">
