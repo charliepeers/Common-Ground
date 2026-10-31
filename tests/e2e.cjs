@@ -199,12 +199,22 @@ async function openRecap(page) {
     const take = document.querySelector('.take');
     const shown = (sel) => take.querySelector(sel).getClientRects().length > 0;
     const before = { quote: shown('.take-quote'), summaryLines: take.querySelector('.take-summary').getClientRects().length };
+    const chipVisible = () => getComputedStyle(take.querySelector('.take-row .sources')).visibility === 'visible';
+    const wait = () => new Promise((resolve) => setTimeout(resolve, 400)); // past the animation
     take.querySelector('.take-text').click();
-    await new Promise((resolve) => setTimeout(resolve, 400)); // past the open animation
-    return { before, quote: shown('.take-quote'), evidence: !!take.querySelector('.take-evidence a[href^="https://"]'), open: take.classList.contains('open') };
+    await wait();
+    const result = { before, quote: shown('.take-quote'), evidence: !!take.querySelector('.take-evidence a[href^="https://"]'),
+      open: take.classList.contains('open'), chipWhileOpen: chipVisible() };
+    take.querySelector('.take-text').click();
+    await wait();
+    result.chipAfterClose = chipVisible();
+    take.querySelector('.take-text').click(); // open again for the screenshot
+    await wait();
+    return result;
   });
   check(!opened.before.quote && opened.open && opened.quote && opened.evidence,
     'a take shows a one-line summary; clicking opens the exact quote and the page it comes from');
+  check(!opened.chipWhileOpen && opened.chipAfterClose, 'the small source chip hides while a take is open and returns when it closes');
   await page.screenshot({ path: `${shots}/4b-take-opened.png` });
   check(await count('.take.s-disagrees') >= 1 && await count('.take.s-agrees') >= 1, 'takes span agree and disagree');
   const stanceColors = await page.evaluate(() => ['disagrees', 'complicates', 'agrees'].map((s) => getComputedStyle(document.querySelector(`.take.s-${s} .stance`)).color));

@@ -323,7 +323,8 @@ mark.flash { animation: flash 1s ease-out 2; }
 .take-row { display: flex; align-items: center; gap: 14px; }
 .take-text { flex: 1; min-width: 0; padding: 12px 0; }
 .take-title { display: flex; align-items: center; gap: 8px; }
-.take-row .sources { flex: none; }
+.take-row .sources { flex: none; transition: opacity 120ms var(--ease-out), visibility 120ms; }
+.take.open .take-row .sources { opacity: 0; visibility: hidden; } /* open, the evidence below shows the source */
 .person { font-weight: 500; font-size: 14px; }
 .stance {
   font-size: 12px; font-weight: 500;
