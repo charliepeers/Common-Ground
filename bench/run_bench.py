@@ -6,7 +6,8 @@
     ->  bench/results/<timestamp>.csv and a summary
 
 The number that matters most is false alarms: true statements flagged false or misleading in
-front of an audience. Items run one at a time so the latencies aren't skewed by concurrency.
+front of an audience. Next is noise: statements that shouldn't get a card at all, and more than one
+claim out of one sentence. Items run one at a time so the latencies aren't skewed by concurrency.
 """
 from __future__ import annotations
 
@@ -52,16 +53,18 @@ async def run_item(backend: LiveBackend, item: dict) -> dict:
         claims.append(data)
 
     timings = await backend.check(item["text"], "Speaker", [], on_early, on_done)
-    kind, verdict, escalated = (claims[0]["kind"] if claims else "none"), "", False
+    kind, verdict, escalated, sources = (claims[0]["kind"] if claims else "none"), "", False, 0
     if claims and kind == "fact":
         result = claims[0]
         if result.get("needs_search") or with_receipts(result) is not result:
             result = await backend.escalate({**result, "speaker": "Speaker"})
             escalated = True
         verdict = with_receipts(result)["verdict"]
+        sources = len(result.get("sources", []))
     return {
         "id": item["id"], "text": item["text"], "expected_kind": "|".join(item["kind"]), "kind": kind,
         "expected": "|".join(item["verdicts"]), "verdict": verdict, "escalated": escalated,
+        "claims": len(claims), "sources": sources,
         "search_ms": timings.get("search_ms", ""), "first_claim_ms": first or "", "llm_ms": timings.get("llm_ms", ""),
         "total_ms": ms_since(start), **score(item, kind, verdict),
     }
@@ -82,6 +85,11 @@ def summarize(rows: list[dict]) -> None:
     print(f"\nitems {len(rows)}   kind right {kind_acc:.0%}   verdict right {sum(r['verdict_ok'] for r in judged)}/{len(judged)}")
     print(f"false alarms {sum(r['false_alarm'] for r in rows)}/{len(trues)} true statements   "
           f"missed falsehoods {sum(r['missed_false'] for r in rows)}/{len(falses)}   escalated {sum(r['escalated'] for r in rows)}")
+    flagged = [r for r in rows if r["kind"] != "none"]
+    cited = [r["sources"] for r in rows if r["verdict"] and r["verdict"] != "unverifiable"]
+    print(f"flagged {len(flagged)}/{len(rows)}   noise {sum(r['expected_kind'] == 'none' for r in flagged)}   "
+          f"split sentences {sum(r['claims'] > 1 for r in rows)}   "
+          f"references per verdict {statistics.mean(cited) if cited else 0:.1f}")
     print("\nlatency (ms)        p50     p90")
     for label, key in [("search", "search_ms"), ("first highlight", "first_claim_ms"), ("Claude call", "llm_ms"), ("to verdict", "total_ms")]:
         values = [float(r[key]) for r in rows if r[key] != ""]

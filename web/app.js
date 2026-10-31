@@ -11,13 +11,20 @@ function h(tag, className, text, attrs) {
   return node;
 }
 
+// One family of icons, read by how solid it is. A fact is one disc, filled as far as the evidence goes:
+// whole for true or false, a slice gone for missing context, hollow for unverified. Contested claims
+// and values are two positions: views that overlap, and two weights on a balance.
+const svg = (shapes) => `<svg viewBox="0 0 16 16" aria-hidden="true">${shapes}</svg>`;
 const VERDICT = {
-  true: { label: 'True', icon: '✓' },
-  false: { label: 'False', icon: '✕' },
-  misleading: { label: 'Missing context', icon: '…' },
-  unverifiable: { label: 'Unverified', icon: '?' },
+  true: { label: 'True', icon: svg('<circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.9 8.3l2.2 2.2 4-4.4" fill="none" stroke="var(--card)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>') },
+  false: { label: 'False', icon: svg('<circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" fill="none" stroke="var(--card)" stroke-width="1.7" stroke-linecap="round"/>') },
+  misleading: { label: 'Missing context', icon: svg('<path d="M8 8V1a7 7 0 1 0 7 7z" fill="currentColor"/><path d="M10 .9a7 7 0 0 1 5 5H10z" fill="currentColor" opacity=".28"/>') },
+  unverifiable: { label: 'Unverified', icon: svg('<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2.6 2.27"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/>') },
 };
-const KIND = { contested: { label: 'Contested', icon: '⇄' }, value: { label: 'Value', icon: '◆' } };
+const KIND = {
+  contested: { label: 'Contested', icon: svg('<circle cx="5.4" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="10.6" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.33a4.5 4.5 0 0 1 0 7.34a4.5 4.5 0 0 1 0-7.34z" fill="currentColor"/>') },
+  value: { label: 'Value', icon: svg('<circle cx="3.9" cy="6.6" r="2.7" fill="currentColor"/><circle cx="12.1" cy="4.1" r="2.3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M1.2 10.6l13.6-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 8.6l2.6 5.2H5.4z" fill="currentColor"/>') },
+};
 const STANCE = { disagrees: 'Disagrees', agrees: 'Agrees', complicates: 'Complicates' };
 const SHOWN_TAKES = 3; // more behind "Show N more"
 const SPEAKER_COLORS = ['#c14c8a', '#337ea9', '#cb912f', '#9065b0', '#9f6b53', '#d9730d'];
@@ -29,6 +36,8 @@ const state = {
   lines: new Map(),
   claims: new Map(),
   speakers: new Map(),
+  stacks: new Map(), // speaker -> their stack of cards
+  stackOrder: 0,
   lastBubble: null,
   t0: null,
   running: null,
@@ -49,6 +58,12 @@ function domain(url) {
   } catch {
     return '';
   }
+}
+
+function iconNode(icon) {
+  const node = h('span', 'ico');
+  node.innerHTML = icon; // our own constants above, never anything from a page or a model
+  return node;
 }
 
 function clock(t) {
@@ -251,9 +266,84 @@ function addClaim(event) {
     line.marks.set(event.id, event.quote);
     renderLine(line);
   }
-  $('#cards').prepend(claim.card);
   renderCard(claim);
+  stackCard(claim);
   updateStats();
+}
+
+// ---------- stacks: one deck per speaker, the newest card on top ----------
+
+function stackFor(raw) {
+  if (!state.stacks.has(raw)) {
+    const stack = h('div', 'stack');
+    stack.dataset.speaker = raw;
+    const toggle = h('button', 'stack-toggle', null, { type: 'button', title: 'Show or hide this speaker\'s earlier cards' });
+    toggle.addEventListener('click', () => setOpen(stack, !stack.classList.contains('open')));
+    const deck = h('div', 'deck');
+    deck.addEventListener('click', (event) => { // the edges behind the top card open it too
+      if (!stack.classList.contains('open') && event.target.closest('.card') !== deck.firstElementChild) setOpen(stack, true);
+    });
+    stack.append(toggle, deck);
+    $('#cards').append(stack);
+    state.stacks.set(raw, stack);
+  }
+  return state.stacks.get(raw);
+}
+
+// Runs a change, then slides each node from where it was to where it landed. The final position is
+// left to the layout and the stylesheet, so a card settling into the deck keeps its own transition.
+function flip(nodes, change) {
+  const before = nodes.map((node) => node.getBoundingClientRect());
+  change();
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  nodes.forEach((node, i) => {
+    const now = node.getBoundingClientRect();
+    const dy = before[i].top - now.top;
+    const scale = now.width ? before[i].width / now.width : 1;
+    if (Math.abs(dy) < 1 && Math.abs(scale - 1) < 0.01) return;
+    node.animate([{ transform: `translateY(${dy}px) scale(${scale})` }, {}], { duration: 300, easing: 'cubic-bezier(.23, 1, .32, 1)' });
+  });
+}
+
+function allStacks() {
+  return [...state.stacks.values()].filter((stack) => stack.isConnected);
+}
+
+// Puts each card at its depth, and an emptied stack away.
+function restack(stack) {
+  const cards = [...$('.deck', stack).children];
+  if (!cards.length) {
+    stack.remove();
+    if (state.stacks.get(stack.dataset.speaker) === stack) state.stacks.delete(stack.dataset.speaker);
+    return;
+  }
+  cards.forEach((card, i) => card.style.setProperty('--depth', Math.min(i, 3)));
+  stack.dataset.depth = Math.min(cards.length - 1, 2);
+  const open = stack.classList.contains('open');
+  const toggle = $('.stack-toggle', stack);
+  toggle.hidden = cards.length < 2;
+  toggle.textContent = open ? 'Show less' : `${cards.length - 1} more`;
+  toggle.setAttribute('aria-expanded', open);
+}
+
+// A new card lands on its speaker's deck, and that deck moves to the top of the list. The order is
+// CSS, not the DOM: moving a node would restart its animations and drop focus from a half-typed push-back.
+function stackCard(claim) {
+  const stack = stackFor(claim.speaker);
+  if ($('.pushback-form', stack)) stack.classList.add('open'); // never bury what someone is typing
+  flip(allStacks(), () => {
+    $('.deck', stack).prepend(claim.card);
+    stack.style.order = --state.stackOrder;
+    restack(stack);
+  });
+}
+
+function setOpen(stack, open) {
+  const others = allStacks().filter((node) => node !== stack);
+  flip([...$('.deck', stack).children, ...others], () => {
+    stack.classList.toggle('open', open);
+    restack(stack);
+  });
 }
 
 function setVerdict(event) {
@@ -334,7 +424,7 @@ function badge(claim) {
   else if (v) ({ label, icon } = VERDICT[v.verdict]);
   if (v?.provisional) label += ' · first read';
   const node = h('span', 'badge');
-  node.append(h('span', 'ico', icon), label);
+  node.append(iconNode(icon), label);
   return node;
 }
 
@@ -353,7 +443,6 @@ function factBody(claim) {
   if (v.sources?.length) text.append(text.textContent ? ' ' : '', sourceList(v.sources));
   if (text.childNodes.length) row.append(text);
   if (v.provisional) card.append(h('p', 'working', 'First read. Confirming with a search…'));
-  if (v.repeat) card.append(h('p', 'note', 'Said before: same verdict as last time.'));
   if (v.pushback) card.append(pushbackNote(v));
   if (claim.pushbackPending) card.append(h('p', 'working', 'Re-checking with a deeper web search…'));
   else if (!v.provisional) {
@@ -494,19 +583,33 @@ function dismissClaim(claim) {
     renderLine(line);
   }
   updateStats();
-  leave(claim.card).then(() => {
+  // The last card takes its stack with it. On a closed deck the next card simply comes forward.
+  const stack = claim.card.closest('.stack');
+  const alone = claim.card.parentElement.childElementCount === 1;
+  if (alone) state.stacks.delete(claim.speaker);
+  const gone = alone ? leave(stack) : stack.classList.contains('open') ? leave(claim.card) : fadeOut(claim.card);
+  gone.then(() => {
+    flip(allStacks(), () => {
+      claim.card.remove();
+      restack(stack);
+    });
     if (!state.claims.size) $('#cards').replaceChildren(empties.cards);
   });
+}
+
+async function fadeOut(node) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  node.style.pointerEvents = 'none';
+  await node.animate([{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(.97)' }],
+    { duration: 140, easing: 'cubic-bezier(.23, 1, .32, 1)', fill: 'forwards' }).finished;
 }
 
 // Fades and shrinks a card a little, then closes the space it took, so the cards below slide up
 // instead of jumping. Exits are quicker than entrances; with reduced motion it just goes.
 async function leave(node) {
+  await fadeOut(node);
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
     const ease = 'cubic-bezier(.23, 1, .32, 1)';
-    node.style.pointerEvents = 'none';
-    await node.animate([{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(.97)' }],
-      { duration: 140, easing: ease, fill: 'forwards' }).finished;
     const style = getComputedStyle(node);
     const gap = parseFloat(getComputedStyle(node.parentElement).rowGap) || 0;
     node.style.overflow = 'hidden';
@@ -625,6 +728,8 @@ function toggleTake(take) {
 function focusCard(id) {
   const claim = state.claims.get(id);
   if (!claim) return;
+  const stack = claim.card.closest('.stack');
+  if (claim.card.previousElementSibling) setOpen(stack, true); // it's behind the top card
   claim.card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   claim.card.classList.add('focus');
   setTimeout(() => claim.card.classList.remove('focus'), 1500);
@@ -749,7 +854,9 @@ function openRecap() {
   const values = claims.filter((c) => c.kind === 'value');
   recapList('#recap-facts', facts, (item, c) => {
     const v = c.verdict;
-    item.append(h('span', `tag v-${v.verdict}`, `${VERDICT[v.verdict].icon} ${VERDICT[v.verdict].label}`), quoted(c), recapWho(c.speaker));
+    const tag = h('span', `tag v-${v.verdict}`);
+    tag.append(iconNode(VERDICT[v.verdict].icon), VERDICT[v.verdict].label);
+    item.append(tag, quoted(c), recapWho(c.speaker));
     if (v.correction && (v.verdict === 'false' || v.verdict === 'misleading')) item.append(h('span', 'fix', `→ ${v.correction}`));
   }, 'No facts checked yet.');
   recapList('#recap-questions', open, (item, c) => {
@@ -775,7 +882,7 @@ function clearConversation() {
   if (state.lines.size && !confirm('Clear the conversation and start over?')) return;
   if (state.running) stop();
   closeRecap();
-  // A new connection is a new server session: earlier lines stop being context and repeats, and
+  // A new connection is a new server session: earlier lines stop being context or repeats, and
   // results still on their way for the old conversation can't land in the new one.
   const old = state.ws;
   state.pending = [];
@@ -786,6 +893,7 @@ function clearConversation() {
   state.lines.clear();
   state.claims.clear();
   state.speakers.clear();
+  state.stacks.clear();
   state.lastBubble = null;
   state.t0 = null;
   setCaption('', '');

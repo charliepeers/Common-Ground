@@ -21,6 +21,10 @@ PUSHBACK_EFFORT = os.getenv("PUSHBACK_EFFORT", "high")
 # Used only when a role runs on one of those models. FAST_MODE=0 turns it off.
 FAST_MODE = os.getenv("FAST_MODE", "1") != "0"
 
+# How much reaches the screen: references on a verdict, and voices on a contested claim or a value.
+MAX_SOURCES = int(os.getenv("MAX_SOURCES", "2"))
+MAX_TAKES = int(os.getenv("MAX_TAKES", "2"))
+
 EXA_API_KEY = os.getenv("EXA_API_KEY", "")
 EXA_SEARCH_TYPE = os.getenv("EXA_SEARCH_TYPE", "lite")
 

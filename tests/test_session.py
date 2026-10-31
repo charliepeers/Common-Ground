@@ -71,18 +71,18 @@ async def test_a_sourced_fact_goes_line_claim_verdict():
 
 
 async def test_unsourced_or_unsure_claims_show_a_first_read_then_escalate():
-    lines = {"x": [fact("a", sources=()), fact("b", needs_search=True)]}
-    _, backend, events = await run(lines, [("A", "x")])
+    lines = {"a b": [fact("a", sources=())], "c d": [fact("c", needs_search=True)]}
+    _, backend, events = await run(lines, [("A", "a b"), ("A", "c d")])
     verdicts = [e for e in events if e["type"] == "verdict"]
-    assert [v["provisional"] for v in verdicts] == [True, True, False, False]
-    assert all(v["verdict"] == "true" for v in verdicts[2:])
-    assert [c for c in backend.calls if c[0] == "escalate"] == [("escalate", "a."), ("escalate", "b.")]
+    assert [v["provisional"] for v in verdicts] == [True, False, True, False]
+    assert all(v["verdict"] == "true" for v in verdicts if not v["provisional"])
+    assert [c for c in backend.calls if c[0] == "escalate"] == [("escalate", "a."), ("escalate", "c.")]
 
 
 async def test_contested_claims_get_perspectives_not_verdicts():
     contested = {**fact("LLMs can't reason", verdict="unverifiable", sources=()), "kind": "contested",
                  "explanation": "crux", "query": "llm reasoning", "voices": ["Gary Marcus"]}
-    _, backend, events = await run({"talk": [contested]}, [("Yann", "talk")])
+    _, backend, events = await run({"LLMs can't reason": [contested]}, [("Yann", "LLMs can't reason")])
     assert kinds(events) == ["line", "claim", "debate", "perspectives"]
     assert events[2]["crux"] == "crux"
     assert backend.calls[1] == ("perspectives", "LLMs can't reason.", ("Gary Marcus",))  # the voices Claude chose
@@ -90,16 +90,69 @@ async def test_contested_claims_get_perspectives_not_verdicts():
 
 async def test_a_failed_perspectives_search_shows_an_empty_card_with_the_reason():
     contested = {**fact("Unreachable claim", verdict="unverifiable", sources=()), "kind": "contested", "voices": []}
-    _, _, events = await run({"talk": [contested]}, [("Yann", "talk")])
+    _, _, events = await run({"Unreachable claim": [contested]}, [("Yann", "Unreachable claim")])
     assert kinds(events) == ["line", "claim", "debate", "perspectives"]
     assert events[-1]["perspectives"] == [] and "search is down" in events[-1]["note"]
 
 
-async def test_repeated_claims_reuse_the_settled_verdict():
-    lines = {"one": [fact("Biden is 47th")], "two": [fact("Biden is 47th", needs_search=True)]}
-    _, backend, events = await run(lines, [("A", "one"), ("B", "two")])
-    verdicts = [e for e in events if e["type"] == "verdict"]
-    assert verdicts[1].get("repeat") is True and not any(c[0] == "escalate" for c in backend.calls)
+async def test_a_repeated_claim_gets_no_second_card():
+    lines = {"Biden is 47th": [fact("Biden is 47th")], "well Biden is 47th": [fact("Biden is 47th", needs_search=True)]}
+    _, backend, events = await run(lines, [("A", "Biden is 47th"), ("B", "well Biden is 47th")])
+    assert kinds(events) == ["line", "claim", "verdict", "line"]
+    assert not any(c[0] == "escalate" for c in backend.calls)
+
+
+async def test_the_same_claim_in_different_words_gets_no_second_card():
+    first, second = fact("Biden is 47th"), {**fact("he is the 47th"), "claim": "Biden is 47th."}
+    _, _, events = await run({"Biden is 47th": [first], "he is the 47th": [second]}, [("A", "Biden is 47th"), ("A", "he is the 47th")])
+    assert kinds(events) == ["line", "claim", "verdict", "line"]
+
+
+async def test_a_quote_from_an_earlier_line_gets_no_card():
+    lines = {"Kirk was killed by an extremist": [fact("Kirk was killed by an extremist")],
+             "who had no plan": [{**fact("Kirk was killed by an extremist"), "claim": "Someone else's words."}]}
+    _, _, events = await run(lines, [("A", "Kirk was killed by an extremist"), ("A", "who had no plan")])
+    assert kinds(events) == ["line", "claim", "verdict", "line"]
+
+
+async def test_a_line_gets_one_card_even_if_the_first_claim_is_dropped():
+    lines = {"a b": [fact("not in this line"), fact("a"), fact("b")]}
+    _, _, events = await run(lines, [("A", "a b")])
+    assert kinds(events) == ["line", "claim", "verdict"] and events[1]["quote"] == "a"
+
+
+async def test_a_sentence_cut_by_a_pause_is_checked_whole():
+    events = []
+
+    async def emit(event):
+        events.append(event)
+
+    whole = "Kirk was killed by an extremist who had no plan."
+    session = Session(emit, FakeBackend({whole: []}), hold_seconds=0.05)
+    first = {"speaker": "Speaker A", "text": "Kirk was killed by an", "spoken_at": 1.0}
+    await session.transcribed([first], {"type": "caption", "speaker": "Speaker A", "text": ""})
+    assert kinds(events) == ["caption"] and events[0]["text"] == "Kirk was killed by an"  # still on screen
+    await session.transcribed([], {"type": "caption", "speaker": "Speaker A", "text": "extremist who"})
+    assert events[-1]["text"] == "Kirk was killed by an extremist who"
+    await asyncio.sleep(0.03)  # past nothing yet: the speech above restarted the wait
+    rest = {"speaker": "Speaker A", "text": "extremist who had no plan.", "spoken_at": 3.0}
+    await session.transcribed([rest], None)
+    lines = [e for e in events if e["type"] == "line"]
+    assert [l["text"] for l in lines] == [whole] and session.joiner.held is None
+
+
+async def test_an_unfinished_sentence_goes_out_after_the_silence():
+    events = []
+
+    async def emit(event):
+        events.append(event)
+
+    session = Session(emit, FakeBackend({"So the thing is": []}), hold_seconds=0.01)
+    await session.transcribed([{"speaker": "A", "text": "So the thing is", "spoken_at": 1.0}], None)
+    assert kinds(events) == []
+    while session._tasks:
+        await asyncio.sleep(0.01)
+    assert kinds(events) == ["line"]
 
 
 async def test_context_is_the_previous_lines():
@@ -113,12 +166,23 @@ async def test_a_failed_check_shows_an_error_and_no_claims():
 
 
 async def test_pushback_records_what_changed():
-    session, _, events = await run({"x": [fact("a")]}, [("A", "x")])
+    session, _, events = await run({"a": [fact("a")]}, [("A", "a")])
     claim_id = events[1]["id"]
     await session.pushback(claim_id, "context matters")
     final = events[-1]
     assert final["verdict"] == "misleading"
     assert final["pushback"] == {"argument": "context matters", "note": "fair point", "previous": "false", "changed": True}
+
+
+async def test_a_failed_pushback_says_why():
+    session, backend, events = await run({"x": [fact("x")]}, [("A", "x")])
+
+    async def down(claim, verdict, argument):
+        raise ConnectionError("search is down")
+
+    backend.pushback = down
+    await session.pushback(events[1]["id"], "context matters")
+    assert events[-1]["type"] == "pushback_failed" and "search is down" in events[-1]["message"]
 
 
 def test_no_receipts_no_red():
@@ -139,7 +203,7 @@ async def test_renamed_speakers_reach_the_model():
     async def emit(event):
         events.append(event)
 
-    backend = FakeBackend({"a": [], "b": [{**fact("x", verdict="unverifiable", sources=()), "kind": "contested"}]})
+    backend = FakeBackend({"a": [], "b": [{**fact("b", verdict="unverifiable", sources=()), "kind": "contested"}]})
     session = Session(emit, backend)
     await session.hear("Speaker 1", "a")
     session.rename("Speaker 1", "Yann LeCun")

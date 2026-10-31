@@ -169,3 +169,19 @@ async def test_fast_mode_and_fallbacks_only_go_to_models_that_support_them():
     assert opus["speed"] == "fast" and set(opus["betas"]) == {"server-side-fallback-2026-07-01", "fast-mode-2026-02-01"}
     assert "speed" not in sonnet and sonnet["fallbacks"] == "default"
     assert not {"speed", "fallbacks", "betas"} & haiku.keys()  # Haiku 5.5 has no server-side fallback
+
+
+def test_a_verdict_shows_at_most_two_references_one_per_site():
+    from server.llm import with_sources
+
+    sources = [Source("A", "https://www.bbc.com/a"), Source("B", "https://bbc.com/b"), Source("C", "https://nasa.gov/c"), Source("D", "https://ap.org/d")]
+    out = with_sources({"source_ids": [1, 2, 3, 4]}, sources)
+    assert [s["url"] for s in out["sources"]] == ["https://www.bbc.com/a", "https://nasa.gov/c"]
+
+
+async def test_a_claim_shows_at_most_two_takes():
+    text = "One two three four five six seven eight"
+    sources = [Source("Page", "https://example.com/p", "", text)]
+    takes = [{"person": p, "stance": "disagrees", "summary": "s", "quote": "One two three", "source_id": 1} for p in "ABCD"]
+    found = await LLM(FakeClient([json.dumps({"perspectives": takes})]), fast=False).perspectives("c", "Yann", "crux", [], sources)
+    assert [t["person"] for t in found] == ["A", "B"]

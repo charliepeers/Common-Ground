@@ -28,6 +28,13 @@ async function settle(page, bubbles) {
   await page.waitForTimeout(800);
 }
 
+// Older cards sit behind the top one; opening the speaker's stack brings them out.
+async function reveal(page, card) {
+  const toggle = page.locator('.stack', { has: card }).locator('.stack-toggle[aria-expanded="false"]');
+  if (await toggle.isVisible()) await toggle.click();
+  await page.waitForTimeout(400);
+}
+
 async function openRecap(page) {
   await page.evaluate(() => document.activeElement?.blur()); // S types into a focused input instead
   await page.keyboard.press('s');
@@ -48,8 +55,11 @@ async function openRecap(page) {
   check(await count('#source, #say, #filters, .legend, #chyron, #stage, #recap-show, #sound, #theme, #present, .latency, #voice-input') === 0,
     'microphone only: no source menu, typed-line box, voices bar, filters, legend, pop-ups or header icons');
   const header = await page.locator('.topbar .controls button').allTextContents();
-  check(header.join('|') === 'Start' && await count('.transcript-pane .pane-head #clear') === 1,
-    `Start sits at the top right and Clear on the transcript (${header.join(', ')})`);
+  check(header.join('|') === '', `no buttons in the top bar (${header.join(', ')})`);
+  const panelButtons = await page.locator('.transcript-pane .pane-head button').allTextContents();
+  check(panelButtons.join('|') === 'Clear|Start', `Clear and Start sit on the transcript panel (${panelButtons.join(', ')})`);
+  const heads = await page.evaluate(() => [...document.querySelectorAll('.pane-head')].map((head) => head.getBoundingClientRect().bottom));
+  check(heads[0] === heads[1], `the two panel heads line up (${heads.join(' / ')})`);
 
   // Facts: a study-group conversation
   const study = conversation('study-group');
@@ -58,7 +68,7 @@ async function openRecap(page) {
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${shots}/1-first-false-claim.png` });
   await typeIn(page, study.lines.slice(1));
-  await settle(page, study.lines.length);
+  await settle(page, study.lines.filter((line, i) => line.speaker !== study.lines[i - 1]?.speaker).length);
   const panel = await page.evaluate(() => {
     const box = document.querySelector('#transcript');
     const side = (sel) => document.querySelector(sel).getBoundingClientRect();
@@ -69,12 +79,38 @@ async function openRecap(page) {
   });
   check(panel.sideBySide && panel.height > 300 && panel.atEnd, `two panels side by side; the transcript is a full panel on its latest lines (${panel.height}px)`);
 
+  // One stack per speaker, newest card on top, the stack with the latest card first
+  const stacks = await page.evaluate(() => [...document.querySelectorAll('.stack')]
+    .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
+    .map((stack) => `${stack.dataset.speaker} ${stack.querySelector('.stack-toggle').textContent}`));
+  check(stacks.join(', ') === 'Sam 3 more, Alex 2 more, Jordan 1 more', `one stack per speaker, latest first (${stacks.join(', ')})`);
+  check(await page.locator('.stack[data-speaker="Sam"] .card').first().textContent().then((t) => t.includes('robotics')), 'the newest card is on top');
+  check(!(await page.locator('.stack[data-speaker="Alex"] .card').nth(1).locator('.card-quote').isVisible()), 'older cards are hidden behind the top one');
+  const edge = await page.evaluate(() => getComputedStyle(document.querySelector('.stack[data-speaker="Alex"] .card:nth-child(2)')).backgroundColor);
+  check(edge === 'rgb(253, 235, 236)', `a false card behind the top one tints its edge (${edge})`);
+  await page.screenshot({ path: `${shots}/2a-stacks.png` });
+  const alex = page.locator('.stack[data-speaker="Alex"]');
+  await alex.locator('.stack-toggle').click();
+  await page.waitForTimeout(450);
+  check(await alex.locator('.card-quote').nth(2).isVisible() && await alex.locator('.stack-toggle').textContent() === 'Show less', 'opening a stack shows all of its cards');
+  await page.screenshot({ path: `${shots}/2a-stack-open.png` });
+  await alex.locator('.stack-toggle').click();
+  await page.waitForTimeout(450);
+  check(!(await alex.locator('.card-quote').nth(2).isVisible()), 'closing a stack puts the cards back');
+  await page.locator('mark.m-false', { hasText: 'Joe Biden' }).click();
+  await page.waitForTimeout(450);
+  check(await alex.locator('.card', { hasText: 'Joe Biden' }).locator('.card-quote').isVisible(), 'clicking a highlight brings out its card');
+  await alex.locator('.stack-toggle').click();
+  await page.waitForTimeout(450);
+  check(await count('.card .badge .ico svg') === 9 && await count('.card.checking') === 0, `every card has its icon (${await count('.card .badge .ico svg')})`);
+
   await openRecap(page);
+  check(await count('#recap-facts li .tag .ico svg') === 8, 'recap tags carry the icons');
   check(await count('#recap-facts li') === 8, `recap lists the 8 checked facts (${await count('#recap-facts li')})`);
   check((await page.locator('#recap-facts li .tag').first().textContent()).includes('False'), 'recap leads with what was false');
   check(await count('#recap #recap-values li') === 1 && await count('#recap #recap-questions li.recap-empty') === 1, 'recap: one value, no open questions');
   const order = await page.locator('#recap-facts li .tag').allTextContents();
-  check(order.slice(0, 4).every((t) => t.includes('False')) && order.slice(4, 7).every((t) => t.includes('True')), `recap puts false claims first (${order.map((t) => t.split(' ')[1]).join(', ')})`);
+  check(order.slice(0, 4).every((t) => t.includes('False')) && order.slice(4, 7).every((t) => t.includes('True')), `recap puts false claims first (${order.join(', ')})`);
   await page.waitForTimeout(900); // let the entrance animations finish before the picture
   await page.screenshot({ path: `${shots}/2b-recap.png` });
   await page.keyboard.press('Escape');
@@ -88,6 +124,7 @@ async function openRecap(page) {
   check(await count('mark.m-checking') === 0, 'no highlight left in the checking state');
   check(await count('.card .source-chip[href^="https://"]') === 7, `each sourced verdict has one source chip (${await count('.card .source-chip')})`);
   check(await count('.card .source-chip .site') === 7 && !(await page.locator('.card').first().textContent()).includes('##'), 'chips show the site, and no raw excerpts are on the cards');
+  await reveal(page, page.locator('.card', { hasText: 'Joe Biden' }));
   const chip = page.locator('.card.v-false', { hasText: 'Joe Biden' }).locator('.sources');
   await chip.hover();
   await page.waitForSelector('.sources.open .source-pop .pop-title', { timeout: 3000 });
@@ -105,6 +142,7 @@ async function openRecap(page) {
 
   // Push back on the Great Wall verdict
   const wall = page.locator('.card', { hasText: 'Great Wall' });
+  await reveal(page, wall);
   await wall.locator('button', { hasText: 'Push back' }).click();
   await wall.locator('textarea').fill('Astronauts have photographed it from the ISS though.');
   await wall.locator('button', { hasText: 'Re-check' }).click();
@@ -127,10 +165,11 @@ async function openRecap(page) {
   check(await count('.card.v-unverifiable') === 0 && await count('mark.m-unverifiable') === 0, 'dismiss removes the card and its highlight');
   check((await page.locator('#stats').textContent()).startsWith('7 facts checked'), 'dismiss takes the claim out of the tally');
 
-  // Clear: within one conversation a repeated claim is remembered; after Clear it's checked fresh
+  // Clear: within one conversation a repeated claim gets no second card; after Clear it's checked fresh
+  const cardsBefore = await count('.card');
   await typeIn(page, study.lines.slice(0, 1));
-  await page.waitForFunction(() => document.querySelectorAll('.card.v-false').length === 5, null, { timeout: 15000 });
-  check(await page.locator('.card.v-false', { hasText: 'Said before' }).count() === 1, 'a repeated claim is marked as said before');
+  await page.waitForTimeout(600);
+  check(await count('.card') === cardsBefore, 'a repeated claim gets no second card');
   page.once('dialog', (d) => d.accept());
   await page.click('#clear');
   await page.waitForFunction(() => !document.querySelector('.bubble, .card'), null, { timeout: 5000 });
@@ -138,7 +177,7 @@ async function openRecap(page) {
   check((await page.locator('#stats').textContent()).startsWith('0 facts checked'), 'clear resets the tally');
   await typeIn(page, study.lines.slice(0, 1)); // typed at once, while the new connection opens
   await page.waitForSelector('.card.v-false', { timeout: 15000 });
-  check(!(await page.locator('.card.v-false').textContent()).includes('Said before'), 'after clear, the same claim is checked fresh');
+  check(await count('.card.v-false') === 1 && await count('.stack') === 1, 'after clear, the same claim is checked fresh');
 
   // Worldviews: LeCun's own words, and how the most credible people see them
   await page.reload();

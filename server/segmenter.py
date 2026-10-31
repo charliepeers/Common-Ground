@@ -155,3 +155,39 @@ class TurnSegmenter:
 
     def _at(self, word: dict | None) -> float:
         return self.started_at + float(word.get("end", 0)) / 1000 if word else time.time()  # AssemblyAI times are in ms
+
+
+class SentenceJoiner:
+    """Puts back a sentence that speech-to-text cut in two.
+
+    AssemblyAI ends a turn after a short silence, punctuation or not (768 ms with speaker labels), so
+    a speaker who pauses mid-sentence arrives as two statements, and the second makes no sense alone.
+    A statement with no sentence end waits here and joins what the same speaker says next. It goes
+    out as it is when someone else talks, at 35 words, or on release().
+    """
+
+    def __init__(self) -> None:
+        self.held: dict | None = None
+
+    def feed(self, statement: dict) -> list[dict]:
+        """Returns the statements ready to check."""
+        ready = self.release() if self.held and self.held["speaker"] != statement["speaker"] else []
+        if self.held:
+            statement = {**statement, "text": f"{self.held['text']} {statement['text']}"}
+            self.held = None
+        words = statement["text"].split()
+        if words and (ends_sentence(words[-1]) or len(words) >= MAX_WORDS):
+            ready.append(statement)
+        else:
+            self.held = statement
+        return ready
+
+    def release(self) -> list[dict]:
+        held, self.held = self.held, None
+        return [held] if held else []
+
+    def caption(self, caption: dict) -> dict:
+        """A held statement stays on screen, ahead of what the same speaker is saying now."""
+        if self.held and self.held["speaker"] == caption["speaker"]:
+            return {**caption, "text": f"{self.held['text']} {caption['text']}".rstrip()}
+        return caption

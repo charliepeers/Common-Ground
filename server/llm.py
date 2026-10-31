@@ -14,7 +14,7 @@ import anthropic
 
 from . import config, prompts, schemas
 from .jsonstream import ClaimStream
-from .search import Source
+from .search import Source, domain
 from .util import ms_since, squash
 
 log = logging.getLogger("cg.llm")
@@ -47,6 +47,14 @@ def declined(explanation: str = "The model declined to assess this claim.") -> d
     return {"verdict": "unverifiable", "confidence": "low", "explanation": explanation, "correction": "", "sources": []}
 
 
+def cited(sources: list[Source]) -> list[dict]:
+    """The references a verdict shows, in Claude's order: one per site, at most MAX_SOURCES."""
+    by_site: dict[str, Source] = {}
+    for source in sources:
+        by_site.setdefault(domain(source.url), source)
+    return [s.as_dict() for s in list(by_site.values())[: config.MAX_SOURCES]]
+
+
 def with_sources(data: dict, sources: list[Source]) -> dict:
     """Swaps Claude's 1-based source_ids for the source records they point at."""
     out = {k: v for k, v in data.items() if k != "source_ids"}
@@ -54,7 +62,7 @@ def with_sources(data: dict, sources: list[Source]) -> dict:
     for i in data.get("source_ids", []):
         if 1 <= i <= len(sources) and sources[i - 1] not in picked:
             picked.append(sources[i - 1])
-    out["sources"] = [s.as_dict() for s in picked]
+    out["sources"] = cited(picked)
     return out
 
 
@@ -262,12 +270,8 @@ class LLM:
             call = next((b for b in message.content if b.type == "tool_use" and b.name == "submit_verdict"), None)
             if call:
                 data = dict(call.input)
-                cited: list[Source] = []
-                for url in data.pop("source_urls", []):
-                    source = seen.get(_url_key(url))  # only pages the search actually returned count
-                    if source and source not in cited:
-                        cited.append(source)
-                data["sources"] = [s.as_dict() for s in cited]
+                found = [seen.get(_url_key(url)) for url in data.pop("source_urls", [])]
+                data["sources"] = cited([source for source in found if source])  # only pages the search returned count
                 return data
             messages.append({"role": "assistant", "content": message.content})
             if message.stop_reason != "pause_turn":  # a paused turn resumes when re-sent as is
@@ -305,7 +309,7 @@ class LLM:
                 "quote": take["quote"].strip(" \"'“”"),
                 "source": source.as_dict(),
             })
-        return found
+        return found[: config.MAX_TAKES]
 
     async def name_speakers(self, lines: list[tuple[str, str]]) -> list[dict]:
         """Names for anonymous speaker labels, only from explicit cues, each with evidence checked verbatim."""

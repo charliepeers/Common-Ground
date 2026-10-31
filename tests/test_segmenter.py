@@ -109,3 +109,49 @@ def test_unknown_short_turns_keep_the_last_speaker():
     seg.feed(turn(0, [("Hello", True, 100), ("there", True, 300), ("friend.", True, 500)], end=True, label="B"))
     _, ready = seg.feed(turn(1, [("Yes", True, 100), ("it", True, 200), ("is.", True, 300)], end=True, label="UNKNOWN"))
     assert ready[0]["speaker"] == "Speaker B"
+
+
+from server.segmenter import SentenceJoiner
+
+
+def said(text, speaker="Speaker A", at=1.0):
+    return {"speaker": speaker, "text": text, "spoken_at": at}
+
+
+def test_a_finished_sentence_goes_straight_through():
+    assert SentenceJoiner().feed(said("Biden is the 47th president.")) == [said("Biden is the 47th president.")]
+
+
+def test_a_sentence_cut_by_a_pause_is_put_back_together():
+    joiner = SentenceJoiner()
+    assert joiner.feed(said("Charlie Kirk was assassinated by an alt-right")) == []
+    ready = joiner.feed(said("extremist who didn't know what he was doing.", at=2.0))
+    assert ready == [said("Charlie Kirk was assassinated by an alt-right extremist who didn't know what he was doing.", at=2.0)]
+    assert joiner.held is None
+
+
+def test_another_speaker_lets_the_unfinished_sentence_go_first():
+    joiner = SentenceJoiner()
+    joiner.feed(said("So the thing is"))
+    ready = joiner.feed(said("Sorry, go on.", speaker="Speaker B"))
+    assert [(s["speaker"], s["text"]) for s in ready] == [("Speaker A", "So the thing is"), ("Speaker B", "Sorry, go on.")]
+
+
+def test_a_run_on_cut_at_35_words_is_not_held():
+    long = " ".join(["word"] * 35)
+    assert SentenceJoiner().feed(said(long)) == [said(long)]
+
+
+def test_release_hands_over_what_is_held_once():
+    joiner = SentenceJoiner()
+    joiner.feed(said("So the thing is"))
+    assert joiner.release() == [said("So the thing is")] and joiner.release() == []
+
+
+def test_the_caption_keeps_a_held_statement_on_screen():
+    joiner = SentenceJoiner()
+    joiner.feed(said("So the thing is"))
+    live = {"type": "caption", "speaker": "Speaker A", "text": "that nuclear"}
+    assert joiner.caption(live)["text"] == "So the thing is that nuclear"
+    assert joiner.caption({**live, "text": ""})["text"] == "So the thing is"
+    assert joiner.caption({**live, "speaker": "Speaker B"}) == {**live, "speaker": "Speaker B"}

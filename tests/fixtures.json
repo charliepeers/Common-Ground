@@ -12,7 +12,11 @@
         },
         {
           "speaker": "Sam",
-          "text": "No, Biden was the 46th. Trump is the 47th, and he was the 45th too."
+          "text": "No, Biden was the 46th."
+        },
+        {
+          "speaker": "Sam",
+          "text": "Trump is the 47th, and he was the 45th too."
         },
         {
           "speaker": "Jordan",
@@ -96,7 +100,7 @@
         }
       ]
     },
-    "No, Biden was the 46th. Trump is the 47th, and he was the 45th too.": {
+    "No, Biden was the 46th.": {
       "claims": [
         {
           "quote": "Biden was the 46th",
@@ -117,7 +121,11 @@
           "needs_search": false,
           "query": "",
           "voices": []
-        },
+        }
+      ]
+    },
+    "Trump is the 47th, and he was the 45th too.": {
+      "claims": [
         {
           "quote": "Trump is the 47th, and he was the 45th too",
           "claim": "Donald Trump is the 47th president of the United States and was also the 45th.",

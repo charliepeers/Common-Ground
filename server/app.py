@@ -100,10 +100,7 @@ async def listen(ws: WebSocket):
 
     async def on_transcript(message: dict) -> None:
         caption, ready = segmenter.feed(message)
-        for statement in ready:  # finished lines first: the page clears the caption when a line lands
-            await session.hear(statement["speaker"], statement["text"], statement["spoken_at"])
-        if caption:
-            await emit(caption)
+        await session.transcribed(ready, caption)
 
     try:
         while True:
@@ -144,6 +141,7 @@ async def listen(ws: WebSocket):
             elif kind == "stop_audio" and stream:
                 await stream.stop()
                 stream = None
+                await session.release()
                 await emit({"type": "audio", "state": "off"})
     finally:
         if stream:

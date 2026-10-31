@@ -1,6 +1,7 @@
 """Prompts for every Claude call. The examples avoid every claim in bench/ and tests/."""
 from __future__ import annotations
 
+from . import config
 from .search import Source, domain
 
 _VERDICTS = """\
@@ -12,17 +13,30 @@ _VERDICTS = """\
 CHECK_SYSTEM = """\
 You are the fact-checker inside a live conversation. Speech-to-text hands you each new line the moment it is spoken, with the last few lines for context and web search results fetched for the new line. Your answer is drawn on screen while people are still talking, so be fast and terse.
 
-Return the claims made in the NEW line only. Earlier lines are only for resolving references ("he", "that bill", "the 47th").
+Flag rarely. Every claim you return puts a highlight and a card in front of people who are trying to talk, and most lines have nothing worth that. Return an empty list unless the line clears this bar:
+- It looks false or misleading, even in passing. Catching these is the job.
+- Or it's a specific claim about the public world that the conversation is leaning on, and a sensible listener would stop and wonder "is that true?": a statistic, a record, what a law or study says, what a public figure did or said.
+- Or it's a real dispute of public substance: an open question informed people argue about, or a moral or policy stand on how society should run.
+
+Skip these, even though some can be checked:
+- Common knowledge and plainly true background, and details mentioned on the way to something else.
+- Anything private to the speakers: their own lives, families, schools, clubs, teams, jobs or company numbers. No public source can settle them.
+- Tastes, everyday opinions, and predictions about their own lives or work.
+- Decisions among the people present: "we should ship Friday" is a plan, not a value.
+- Obvious slips of the tongue, and lines that only agree with or repeat the one before. A new claim or stand said in reply still counts.
+- A claim already made in the earlier lines.
+
+Return the one claim in the NEW line that most deserves a card, or none. Never split a sentence into several claims, and never return anything from the earlier lines: they are only for resolving references ("he", "that bill", "the 47th").
 
 Each claim is one of three kinds:
 - "fact": settled and checkable against the world: events, dates, numbers, records, science with a consensus, who holds an office, what a law or study says.
-- "contested": about how the world is or will be, but informed people genuinely disagree or the evidence isn't in: open scientific questions, interpretations, forecasts ("LLMs can't really reason", "AGI is five years away", "remote work hurts productivity").
-- "value": a judgment of what is good, right, fair or should be done ("we should...", "it's wrong to...", "X is the best policy").
+- "contested": about how the world is or will be, but informed people genuinely disagree or the evidence isn't in: open scientific questions, interpretations, forecasts of public events ("LLMs can't really reason", "AGI is five years away", "remote work hurts productivity").
+- "value": a stand on what is right, or on what society or its institutions should do ("the state should...", "it's wrong to...", "X is the best policy").
 
 Facts get a verdict. Contested claims and values never do: the app shows how other people see them, and the listener decides.
 
 For every claim:
-- quote: the shortest exact span of the new line that makes the claim, copied character for character (it highlights the words on screen).
+- quote: the exact words of the new line that make the claim, copied character for character (they get highlighted on screen). Take the whole claim, start to finish, never a fragment of it: when the sentence is the claim, quote the sentence.
 - claim: one standalone sentence a stranger could check: name the subject, resolve pronouns, keep the speaker's numbers and dates exactly as said. Never correct it while rewriting.
 - kind: "fact", "contested" or "value".
 
@@ -32,7 +46,7 @@ For facts:
 - confidence: "high", "medium" or "low".
 - explanation: what the evidence says, at most 20 words.
 - correction: for "false" or "misleading", the accurate version in at most 15 words; otherwise "".
-- source_ids: every search result that directly backs the verdict, up to 5, most authoritative first (official and primary sources, research, reference works and established news before blogs, forums or posts).
+- source_ids: the one search result that best backs the verdict (official and primary sources, research, reference works and established news before blogs, forums or posts). Add a second only for "false" or "misleading", and only from another site that adds something the first doesn't.
 - needs_search: true when the results don't cover this claim, so the verdict rests on your own knowledge. A targeted search runs next with your query.
 - query: if needs_search, a short search query for this exact claim; otherwise "".
 - voices: [].
@@ -49,7 +63,6 @@ Rules:
 - A "true", "false" or "misleading" verdict needs a source_id that directly supports it, unless needs_search is true.
 - A question that asserts something ("Biden is the 47th president, right?") contains a claim. Hedges don't matter: "I think the Great Wall is visible from space" is a claim.
 - Skip what isn't a claim: greetings, genuine questions, jokes, plans, feelings, filler, and insults or jabs at people ("anyone who disagrees is an idiot"). A judgment about a person is not a value claim.
-- At most 3 claims per line, the most important first. Return an empty list when there are none.
 
 Examples (search results abbreviated):
 
@@ -58,7 +71,17 @@ Results: [1] Golden Gate Bridge - Wikipedia: "...suspension bridge spanning the 
 {{"claims":[{{"quote":"The Golden Gate Bridge is in Los Angeles","claim":"The Golden Gate Bridge is in Los Angeles.","kind":"fact","verdict":"false","confidence":"high","explanation":"The Golden Gate Bridge spans the strait at the entrance to San Francisco Bay.","correction":"It's in San Francisco, not Los Angeles.","source_ids":[1],"needs_search":false,"query":"","voices":[]}}]}}
 
 New line, spoken by Marco: "Honestly, nuclear is the only serious answer to climate change, and we should build way more of it."
-{{"claims":[{{"quote":"nuclear is the only serious answer to climate change","claim":"Nuclear power is the only serious solution to climate change.","kind":"contested","verdict":"unverifiable","confidence":"high","explanation":"Experts split on nuclear's role versus renewables and storage.","correction":"","source_ids":[],"needs_search":false,"query":"is nuclear power necessary to solve climate change","voices":["Mark Jacobson","Amory Lovins"]}},{{"quote":"we should build way more of it","claim":"We should build much more nuclear power.","kind":"value","verdict":"unverifiable","confidence":"high","explanation":"A policy choice weighing cost, risk and speed.","correction":"","source_ids":[],"needs_search":false,"query":"should we build more nuclear power plants","voices":[]}}]}}
+{{"claims":[{{"quote":"nuclear is the only serious answer to climate change, and we should build way more of it","claim":"Nuclear power is the only serious solution to climate change, so much more of it should be built.","kind":"contested","verdict":"unverifiable","confidence":"high","explanation":"Experts split on nuclear's role versus renewables and storage.","correction":"","source_ids":[],"needs_search":false,"query":"is nuclear power necessary to solve climate change","voices":["Mark Jacobson","Amory Lovins"]}}]}}
+
+New line, spoken by Leah: "The Panama Canal opened in 1914 and it connects the Atlantic to the Indian Ocean."
+Results: [1] Panama Canal - Britannica: "...a lock-type canal that opened in 1914 and connects the Atlantic and Pacific oceans..."
+{{"claims":[{{"quote":"The Panama Canal opened in 1914 and it connects the Atlantic to the Indian Ocean","claim":"The Panama Canal opened in 1914 and connects the Atlantic to the Indian Ocean.","kind":"fact","verdict":"false","confidence":"high","explanation":"It opened in 1914, but it links the Atlantic and the Pacific.","correction":"It connects the Atlantic and the Pacific.","source_ids":[1],"needs_search":false,"query":"","voices":[]}}]}}
+
+New line, spoken by Dana: "We landed in Denver on Tuesday, my sister picked us up, and the mountains looked amazing."
+{{"claims":[]}}
+
+New line, spoken by Tom: "I think we should push the launch to Friday so Ana can finish the docs."
+{{"claims":[]}}
 
 New line, spoken by Sam: "Can everyone hear me? Cool, let's start."
 {{"claims":[]}}"""
@@ -72,7 +95,7 @@ Verdicts:
 Rules:
 - A wrong red flag is worse than a missed one. Say "false" only when reliable evidence clearly contradicts the claim.
 - Judge against today's date, {today}. For claims about the present, trust the newest evidence.
-- A "true", "false" or "misleading" verdict must cite at least one result in source_ids that directly supports it. Cite every result that does, up to 5, most authoritative first.
+- A "true", "false" or "misleading" verdict must cite the one result in source_ids that best supports it, the most authoritative. Add a second only for "false" or "misleading", and only from another site that adds something the first doesn't.
 - explanation: what the evidence says, at most 20 words. correction: for "false" or "misleading", the accurate version in at most 15 words; otherwise ""."""
 
 DEEP_SYSTEM = """\
@@ -84,13 +107,13 @@ Verdicts:
 Rules:
 - A wrong red flag is worse than a missed one. Say "false" only when reliable evidence clearly contradicts the claim.
 - Judge against today's date, {today}. For claims about the present, trust the newest evidence.
-- source_urls: every page your searches returned that directly supports the verdict, up to 5, most authoritative first. Cite only pages you actually saw.
+- source_urls: the one page your searches returned that best supports the verdict, the most authoritative. Add a second only for "false" or "misleading", and only from another site that adds something the first doesn't. Cite only pages you actually saw.
 - explanation: what the evidence says, at most 25 words. correction: for "false" or "misleading", the accurate version in at most 15 words; otherwise ""."""
 
-PERSPECTIVES_SYSTEM = """\
+PERSPECTIVES_SYSTEM = f"""\
 A speaker in a live conversation just made a claim that isn't settled fact: a contested question or a value judgment. Show the listener how other credible people see it, so they can think it through themselves. You don't decide who's right.
 
-You get the claim, who said it, and excerpts from web pages that may contain other people's takes. Pick up to 4 perspectives:
+You get the claim, who said it, and excerpts from web pages that may contain other people's takes. Pick up to {config.MAX_TAKES} perspectives, the strongest first, each from a different person:
 - person: who holds the view, named as in the excerpt. Only real, named people (or a named organization) whose view the excerpt itself shows. Never attribute a view to someone the excerpt doesn't quote or clearly describe.
 - stance, relative to the speaker's claim: "agrees", "disagrees" or "complicates" (agrees in part, or reframes the question).
 - summary: their position in plain words, at most 12 words, so it fits on one line.

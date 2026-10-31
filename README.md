@@ -50,12 +50,14 @@ Then start the server:
 .venv/bin/uvicorn server.app:app --port 8000
 ```
 
-Open http://localhost:8000 and press **Start**. One microphone listens to the whole room, and voices are told apart by diarization (see "Telling voices apart").
+Open http://localhost:8000 and press **Start**, at the top of the Transcript panel. One microphone listens to the whole room, and voices are told apart by diarization (see "Telling voices apart").
 
 On screen:
 
 - **The transcript** is a two-line strip that stays on the latest words; scroll it up to read back.
-- **Cards** lead with the exact words that were said. A plain fact gets a small verdict and, when it isn't true, one line on what is, with its sources cited inline as one chip (`en.wikipedia +2`); hovering the chip shows each page's title, excerpt and site logo. Contested claims and values list the other voices, one row each: who, where they stand, a one-line summary and the source. Click a row to open it to the person's exact words and the page they come from.
+- **Stacks:** each speaker's cards sit in one deck, newest on top, and the deck with the latest card comes first. Older cards show as edges, tinted by their verdict, so a false claim under a true one still shows. "2 more", or a click on an edge, opens the deck; clicking a highlight brings out its card.
+- **Icons** read by how solid a claim is. A fact is one disc, filled as far as the evidence goes: whole for True or False, a slice gone for Missing context, hollow for Unverified. Contested claims and values are two positions: views that overlap, and two weights on a balance.
+- **Cards** lead with the exact words that were said. A plain fact gets a small verdict and, when it isn't true, one line on what is, with its sources cited inline as one chip (`en.wikipedia +1`); hovering the chip shows each page's title, excerpt and site logo. Contested claims and values list the other voices, one row each: who, where they stand, a one-line summary and the source. Click a row to open it to the person's exact words and the page they come from.
 - **Push back** asks for a deeper re-check; **Dismiss** removes a card, its highlight and its place in the tally.
 - **Clear** (on the transcript panel) starts over: an empty page and a fresh session on the server, so nothing from the old conversation carries into the new one.
 - **Keys:** S opens the recap ("Common ground": the facts checked, false first; the open questions with who stands where; the values that are yours to weigh). P toggles presentation mode. Esc closes the recap.
@@ -99,7 +101,7 @@ The pieces:
    It also handles push-back and suggests names for anonymous speakers.
 5. **Claude layer (`server/llm.py`, `prompts.py`, `schemas.py`).** Each role has its own model (see "Model and vendor choices"); all calls use JSON-schema outputs. Push-back uses Claude's own web search tool, with a strict `submit_verdict` tool for the answer.
 6. **Search (`server/search.py`).** Exa `lite`, Exa's type for real-time and voice use.
-   - Facts: 10 results per search, with an `objective` that tells Exa to rank primary and authoritative sources first (official pages, data, research, reference works, established news). Claude cites every result that backs a verdict, up to 5, most authoritative first.
+   - Facts: 10 results per search, with an `objective` that tells Exa to rank primary and authoritative sources first (official pages, data, research, reference works, established news). A verdict cites its best source. A false or misleading one can add a second from another site, when it adds something. `MAX_SOURCES` sets the limit, 2 by default, and code enforces it along with one reference per site.
    - Contested claims and values: nobody picks the voices by hand. When Claude sorts a claim it names up to three of the most credible people on that exact question who have publicly argued a different view, and the search looks for them, plus X itself on the topic, so takes come from people's own posts as well as the open web. X posts feed this lane, not verdicts: a post saying something doesn't make it true.
    - Each request sends only what `lite` accepts, and the server logs any `warnings` Exa returns about ignored fields.
 
@@ -117,6 +119,8 @@ The unit is the sentence because a claim rarely spans two of them, and waiting f
 
 AssemblyAI streams turns instead of segments, so `TurnSegmenter` sends each finished turn sentence by sentence, and cuts long turns at 35 words.
 
+A pause can end a turn in the middle of a sentence: with speaker labels AssemblyAI ends a turn after 768 ms of silence, punctuation or not. So `SentenceJoiner` holds a statement that has no sentence end, keeps it in the caption, and joins it to what the same speaker says next. It goes out as it is when someone else talks, after 2 s of silence, or when listening stops.
+
 ### Latency design, all unmeasured
 
 What each choice is meant to do, and why:
@@ -131,10 +135,11 @@ What each choice is meant to do, and why:
 
 ### Measuring speed and accuracy
 
-`bench/claims.jsonl` holds 37 labeled statements: true and false facts, private claims, contested claims, values, and non-claims. The runner reports:
+`bench/claims.jsonl` holds 42 labeled statements: true and false facts, private claims, contested claims, values, and non-claims. Plain true facts may be flagged or skipped; private claims and non-claims must be skipped. The runner reports:
 
 - whether each statement was sorted into the right lane and given the right verdict;
 - **false alarms:** true statements shown as false or misleading;
+- **noise:** how many statements got a card, how many of those shouldn't have, sentences split into several claims, and references per verdict;
 - p50 and p90 latency for search, first highlight, the Claude call, and time to verdict.
 
 ```bash
@@ -166,6 +171,8 @@ The benchmark starts from text, so speech-to-text time is not included. Speech-t
 
 - **No receipts, no red.** A true, false or misleading verdict must cite a page the search actually returned. Otherwise it shows as unverified, along with which way it was leaning.
 - **A wrong red flag is worse than a missed one.** The prompts say so, and the benchmark counts false alarms separately.
+- **Flag rarely.** A card has to earn its place: something that looks false or misleading, a specific public claim the conversation leans on, or a real public dispute. Common knowledge, private facts, tastes and plans get nothing.
+- **One sentence, one card.** Never split a sentence into several claims. A claim's quote must come from the line being checked, and the same claim never gets a second card, in code as well as in the prompts.
 - **Quotes are verbatim or dropped.** Every perspective quote is checked in code against the text of its page.
 - **Contested isn't false.** Stances are color-coded in hues the verdicts don't use (pink for disagrees, yellow for complicates, gray for agrees), so a disagreeing take never reads as a red "false".
 - **Humans get the last word.**
@@ -309,14 +316,14 @@ On the independent [Pipecat streaming benchmark](https://github.com/pipecat-ai/s
 | Path | What it is |
 |---|---|
 | `server/app.py` | HTTP and WebSocket server; one session per connection |
-| `server/session.py` | Statements in; claims, verdicts and perspectives out; push-back; the receipts rule; speaker naming |
+| `server/session.py` | Statements in; claims, verdicts and perspectives out; push-back; the receipts rule; one card per claim; speaker naming |
 | `server/segmenter.py` | When a statement is complete enough to check |
 | `server/llm.py`, `prompts.py`, `schemas.py` | Every Claude call, its prompt and its JSON schema |
 | `server/jsonstream.py` | Reads claims out of the streaming answer as they complete |
 | `server/search.py`, `backends.py` | Exa, and the backend that runs every check |
 | `server/stt.py` | AssemblyAI and Deepgram streaming relays |
 | `web/` | The page: `app.js`, `styles.css`, `pcm-worklet.js` |
-| `bench/` | 37 labeled statements and the benchmark runner |
+| `bench/` | 42 labeled statements and the benchmark runner |
 | `tests/` | Python tests, real-SDK wire tests, the browser test, its test server (`serve.py`) and its fixed test data |
 
 ## Tests

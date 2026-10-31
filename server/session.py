@@ -9,13 +9,15 @@ from typing import Awaitable, Callable
 
 import anthropic
 
+from .segmenter import SentenceJoiner
 from .util import ms_since, normalize
 
 log = logging.getLogger("cg.session")
 
 Emit = Callable[[dict], Awaitable[None]]
 CONTEXT_LINES = 6
-MAX_CLAIMS_PER_LINE = 3
+MAX_CLAIMS_PER_LINE = 1  # one sentence, one card: splitting a sentence into claims reads as noise
+HOLD_SECONDS = 2.0  # how long an unfinished sentence waits for the rest, after the last word heard
 ANONYMOUS = re.compile(r"^Speaker [A-Z0-9]+$")  # how diarization labels people it can't name
 NAMING_EVERY = 4  # lines between attempts to name anonymous speakers
 
@@ -36,15 +38,18 @@ def describe(err: Exception) -> str:
 
 
 class Session:
-    def __init__(self, emit: Emit, backend, max_parallel: int = 8):
+    def __init__(self, emit: Emit, backend, max_parallel: int = 8, hold_seconds: float = HOLD_SECONDS):
         self.emit = emit
         self.backend = backend
         self.names: dict[str, str] = {}  # "Speaker 1" -> "Yann LeCun", so Claude knows who is talking
         self.lines: list[dict] = []
         self.claims: dict[str, dict] = {}
-        self.settled: dict[str, dict] = {}  # normalized claim -> its final verdict
+        self.seen: set[str] = set()  # normalized quotes and claims that already have a card
         self.suggested: set[str] = set()  # labels we've already proposed a name for
         self._since_naming = 0
+        self.joiner = SentenceJoiner()
+        self._hold_seconds = hold_seconds
+        self._hold: asyncio.Task | None = None
         self._limit = asyncio.Semaphore(max_parallel)
         self._tasks: set[asyncio.Task] = set()
         self._count = 0
@@ -53,10 +58,11 @@ class Session:
         self._count += 1
         return f"{prefix}{self._count}"
 
-    def spawn(self, coro) -> None:
+    def spawn(self, coro) -> asyncio.Task:
         task = asyncio.create_task(coro)
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
+        return task
 
     def rename(self, speaker: str, name: str) -> None:
         if speaker and name.strip():
@@ -71,6 +77,29 @@ class Session:
     async def close(self) -> None:
         for task in list(self._tasks):
             task.cancel()
+
+    async def transcribed(self, ready: list[dict], caption: dict | None) -> None:
+        """What speech-to-text just finished, and the live caption. An unfinished sentence waits for the rest."""
+        for statement in ready:  # finished lines first: the page clears the caption when a line lands
+            await self._hear_all(self.joiner.feed(statement))
+        if caption:
+            await self.emit(self.joiner.caption(caption))
+        if ready or (caption and caption["text"]):  # someone is talking, so the wait starts over
+            if self._hold:
+                self._hold.cancel()
+            self._hold = self.spawn(self._release_after_silence()) if self.joiner.held else None
+
+    async def release(self) -> None:
+        """Nobody is going to finish it: whatever is held goes out now."""
+        await self._hear_all(self.joiner.release())
+
+    async def _release_after_silence(self) -> None:
+        await asyncio.sleep(self._hold_seconds)
+        await self.release()
+
+    async def _hear_all(self, statements: list[dict]) -> None:
+        for statement in statements:
+            await self.hear(statement["speaker"], statement["text"], statement["spoken_at"])
 
     async def hear(self, speaker: str, text: str, spoken_at: float | None = None) -> None:
         """A statement is complete (see segmenter.py for when that is): show it, then check it."""
@@ -104,12 +133,21 @@ class Session:
                 self.suggested.add(guess["speaker"])
                 await self.emit({"type": "speaker_guess", **guess})
 
+    def _is_new(self, fields: dict, line: dict) -> bool:
+        """A claim gets one card, on the line it was said in. Given earlier lines as context, Claude can
+        reach back and claim them again; the same words said twice are the same claim."""
+        quote, claim = normalize(fields.get("quote", "")), normalize(fields.get("claim", ""))
+        if not quote or quote not in normalize(line["text"]) or {quote, claim} & self.seen:
+            return False
+        self.seen |= {quote, claim}
+        return True
+
     async def _check(self, line: dict, context: list[tuple[str, str]], spoken_at: float | None) -> None:
         start = time.perf_counter()
         ids: dict[int, str] = {}
 
         async def on_early(i: int, fields: dict) -> None:
-            if i >= MAX_CLAIMS_PER_LINE or i in ids:
+            if i in ids or len(ids) >= MAX_CLAIMS_PER_LINE or not self._is_new(fields, line):
                 return
             claim = {
                 "id": self._id("c"),
@@ -124,10 +162,10 @@ class Session:
             await self.emit({"type": "claim", **claim, "ms": ms_since(start)})
 
         async def on_done(i: int, data: dict) -> None:
-            if i >= MAX_CLAIMS_PER_LINE:
-                return
             if i not in ids:
                 await on_early(i, data)
+            if i not in ids:
+                return
             claim = self.claims[ids[i]]
             claim.update(
                 quote=data.get("quote", claim["quote"]),
@@ -145,10 +183,7 @@ class Session:
             verdict = {k: data.get(k, "") for k in ("verdict", "confidence", "explanation", "correction")}
             verdict["sources"] = data.get("sources", [])
             unsourced = verdict["verdict"] != "unverifiable" and not verdict["sources"]
-            known = self.settled.get(normalize(claim["claim"]))
-            if known:
-                await self._settle(claim, {**known, "repeat": True}, start, spoken_at)
-            elif data.get("needs_search") or unsourced:
+            if data.get("needs_search") or unsourced:
                 # Show the first read right away, marked as unconfirmed, while a targeted search runs.
                 await self.emit({
                     "type": "verdict", "claim_id": claim["id"], "provisional": True, **verdict,
@@ -173,7 +208,6 @@ class Session:
             timings["since_speech_ms"] = max(0, int((time.time() - spoken_at) * 1000))
         verdict = {**verdict, "timings": timings}
         claim["verdict"] = verdict
-        self.settled.setdefault(normalize(claim["claim"]), verdict)
         await self.emit({"type": "verdict", "claim_id": claim["id"], "provisional": False, **verdict})
         log.info("%-12s %5d ms  %s", verdict["verdict"].upper(), timings["total_ms"], claim["claim"])
 
@@ -215,9 +249,6 @@ class Session:
         try:
             async with self._limit:
                 verdict = await self.backend.pushback(self._named(claim), before, argument)
-        except NotRecorded:
-            await self.emit({"type": "pushback_failed", "claim_id": claim_id, "message": "Offline replay has no recorded re-check for this claim."})
-            return
         except Exception as err:
             log.exception("pushback failed")
             await self.emit({"type": "pushback_failed", "claim_id": claim_id, "message": describe(err)})
@@ -232,5 +263,4 @@ class Session:
             "changed": verdict["verdict"] != before["verdict"],
         }
         claim["verdict"] = verdict
-        self.settled[normalize(claim["claim"])] = verdict
         await self.emit({"type": "verdict", "claim_id": claim_id, "provisional": False, **verdict})
