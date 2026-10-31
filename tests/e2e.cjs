@@ -47,9 +47,10 @@ async function openRecap(page) {
   const count = (sel) => page.locator(sel).count();
 
   await page.goto(base);
-  await page.waitForSelector('.pill.live', { timeout: 10000 });
+  await page.waitForSelector('body[data-connected="true"]', { timeout: 10000 });
   check(await page.locator('.pill.warn', { hasText: 'test data, not model output' }).count() === 1, 'test data is labeled as such');
   check(await page.locator('#chyron').isHidden(), 'no empty lower third before the first verdict');
+  check(await count('#status .pill') === 1 && await count('#theme, #present') === 0, 'no status pills beyond the test-data label, no theme or presentation icons');
   const options = await page.locator('#source option').allTextContents();
   check(options.length === 4 && !options.some((o) => /demo|script|replay|test/i.test(o)), `only real sources are offered: ${options.join(' | ')}`);
 
@@ -81,7 +82,15 @@ async function openRecap(page) {
   check(await count('.card.k-value') === 1, `1 value card (${await count('.card.k-value')})`);
   check(await count('mark.m-false') === 4 && await count('mark.m-true') === 3, 'transcript highlights match verdicts');
   check(await count('mark.m-checking') === 0, 'no highlight left in the checking state');
-  check(await count('.card .sources a[href^="https://"]') >= 7, 'verdict cards carry source links');
+  check(await count('.card .source-chip[href^="https://"]') === 7, `each sourced verdict has one source chip (${await count('.card .source-chip')})`);
+  check(await count('.card .source-chip .site') === 7 && !(await page.locator('.card').first().textContent()).includes('##'), 'chips show the site, and no raw excerpts are on the cards');
+  const chip = page.locator('.card.v-false', { hasText: 'Joe Biden' }).locator('.sources');
+  await chip.hover();
+  await page.waitForSelector('.sources.open .source-pop .pop-title', { timeout: 3000 });
+  check((await page.locator('.sources.open .pop-title').textContent()).length > 0 && await count('.sources.open .pop-icons img') >= 1, 'hovering a source shows its title and site logos');
+  await page.screenshot({ path: `${shots}/2c-source-popover.png` });
+  await page.mouse.move(5, 5);
+  await page.waitForFunction(() => !document.querySelector('.sources.open'), null, { timeout: 3000 });
   const stats = await page.locator('#stats').textContent();
   check(stats.includes('8 facts checked') && stats.includes('4 false'), `stats: ${stats}`);
   check(!stats.includes('median') && await count('.latency') === 0, 'no latency is shown for unmeasured data');
@@ -108,6 +117,12 @@ async function openRecap(page) {
   check(await page.locator('.card:not([hidden])').count() === 1, 'values filter shows only the value card');
   await page.click('#filters [data-filter="all"]');
 
+  // Dismiss removes a card entirely
+  const robotics = page.locator('.card', { hasText: 'robotics' });
+  await robotics.locator('button', { hasText: 'Dismiss' }).click();
+  check(await count('.card.v-unverifiable') === 0 && await count('mark.m-unverifiable') === 0, 'dismiss removes the card and its highlight');
+  check((await page.locator('#stats').textContent()).startsWith('7 facts checked'), 'dismiss takes the claim out of the tally');
+
   // Clear: within one conversation a repeated claim is remembered; after Clear it's checked fresh
   await typeIn(page, study.lines.slice(0, 1));
   await page.waitForFunction(() => document.querySelectorAll('.card.v-false').length === 5, null, { timeout: 15000 });
@@ -120,11 +135,10 @@ async function openRecap(page) {
   await typeIn(page, study.lines.slice(0, 1)); // typed at once, while the new connection opens
   await page.waitForSelector('.card.v-false', { timeout: 15000 });
   check(!(await page.locator('.card.v-false').textContent()).includes('Said before'), 'after clear, the same claim is checked fresh');
-  check(await count('.pill.live') === 1, 'reconnected after clear');
 
   // Worldviews: LeCun's own words, with Karpathy pinned as a voice
   await page.reload();
-  await page.waitForSelector('.pill.live');
+  await page.waitForSelector('body[data-connected="true"]');
   const lecture = conversation('ai-lecture');
   await typeIn(page, lecture.lines.slice(0, 1), lecture.voices);
   check(await page.locator('#voice-chips .chip', { hasText: 'Andrej Karpathy' }).count() === 1, 'a pinned voice shows as a chip');
@@ -149,7 +163,7 @@ async function openRecap(page) {
   // A video file plays on the stage, and verdicts appear over it
   if (clip) {
     await page.reload();
-    await page.waitForSelector('.pill.live');
+    await page.waitForSelector('body[data-connected="true"]');
     await page.selectOption('#source', 'video');
     const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#start')]);
     await chooser.setFiles(clip);
@@ -168,9 +182,8 @@ async function openRecap(page) {
     await page.keyboard.press('Escape');
   }
 
-  // Light theme and a phone-width layout
-  await page.click('#theme');
-  await page.screenshot({ path: `${shots}/6-light.png` });
+  // Full width, then a phone-width layout
+  await page.screenshot({ path: `${shots}/6-wide.png` });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(300);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

@@ -14,12 +14,12 @@ function h(tag, className, text, attrs) {
 const VERDICT = {
   true: { label: 'True', icon: '✓' },
   false: { label: 'False', icon: '✕' },
-  misleading: { label: 'Misleading', icon: '!' },
+  misleading: { label: 'Missing context', icon: '…' },
   unverifiable: { label: 'Unverified', icon: '?' },
 };
 const KIND = { contested: { label: 'Contested', icon: '⇄' }, value: { label: 'Value', icon: '◆' } };
 const STANCE = { disagrees: 'Disagrees', agrees: 'Agrees', complicates: 'Complicates' };
-const SPEAKER_COLORS = ['#f472b6', '#38bdf8', '#fbbf24', '#34d399', '#c084fc', '#fb923c'];
+const SPEAKER_COLORS = ['#c14c8a', '#337ea9', '#cb912f', '#9065b0', '#9f6b53', '#d9730d'];
 
 const state = {
   config: {},
@@ -42,16 +42,6 @@ const empties = {}; // the empty-state hints, put back when the conversation is 
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function store(key, value) {
-  try {
-    if (value === undefined) return localStorage.getItem(key);
-    localStorage.setItem(key, value);
-  } catch {
-    return null;
-  }
-  return value;
-}
-
 function safeUrl(url) {
   return /^https?:\/\//i.test(url || '') ? url : null; // sources come from the web: no javascript: links
 }
@@ -71,7 +61,7 @@ function initials(name) {
 function personColor(name) {
   let hash = 0;
   for (const ch of name) hash = (hash * 31 + ch.codePointAt(0)) % 360;
-  return `hsl(${hash}, 45%, 42%)`;
+  return `hsl(${hash}, 30%, 46%)`;
 }
 
 function clock(t) {
@@ -218,7 +208,6 @@ function findQuote(text, quote) {
 }
 
 function markClass(claim) {
-  if (claim.dismissed) return 'dismissed';
   if (claim.kind !== 'fact') return `m-${claim.kind}`;
   if (!claim.verdict) return 'm-checking';
   return `m-${claim.verdict.verdict}${claim.verdict.provisional ? ' provisional' : ''}`;
@@ -295,15 +284,15 @@ function setVerdict(event) {
   const source = event.sources?.[0];
   if (event.pushback) {
     const now = VERDICT[event.verdict].label;
-    chyron(event.verdict, event.pushback.changed ? 'Changed' : 'Held', `${claim.claim} → ${now}`, event.pushback.note);
+    chyron(event.verdict, event.pushback.changed ? 'Changed' : 'Held', `${quoted(claim)} → ${now}`, event.pushback.note);
   } else if (alarming) {
     const detail = [event.correction || event.explanation, source && domain(source.url)].filter(Boolean).join('  ·  ');
-    chyron(event.verdict, `${VERDICT[event.verdict].icon} ${VERDICT[event.verdict].label}`, claim.claim, detail);
+    chyron(event.verdict, `${VERDICT[event.verdict].icon} ${VERDICT[event.verdict].label}`, quoted(claim), detail);
     beep();
   } else if (stageOn() && !event.provisional && !event.repeat) {
     // Over a video, like a broadcast fact-check, every settled claim gets its moment.
     const detail = [event.explanation, source && domain(source.url)].filter(Boolean).join('  ·  ');
-    chyron(event.verdict, `${VERDICT[event.verdict].icon} ${VERDICT[event.verdict].label}`, claim.claim, detail, 4500);
+    chyron(event.verdict, `${VERDICT[event.verdict].icon} ${VERDICT[event.verdict].label}`, quoted(claim), detail, 4500);
   }
 }
 
@@ -344,37 +333,50 @@ function matchesFilter(claim) {
   return state.filter === 'all' || claim.kind === state.filter;
 }
 
+// A card leads with the words that were said. A plain fact then gets a small verdict and the sites
+// checked; anything else gets its context: what's actually so, or the people who see it differently.
 function renderCard(claim, fresh = false) {
   const v = claim.verdict;
   const tone = claim.kind !== 'fact' ? `k-${claim.kind}` : v ? `v-${v.verdict}` : 'checking';
-  const flags = [v?.provisional && 'provisional', claim.dismissed && 'dismissed', fresh && 'fresh'].filter(Boolean);
+  const flags = [v?.provisional && 'provisional', fresh && 'fresh'].filter(Boolean);
   claim.card.className = ['card', tone, ...flags].join(' ');
   claim.card.hidden = !matchesFilter(claim);
-  const text = h('p', 'card-claim', claim.claim, { title: 'Show in transcript' });
-  text.addEventListener('click', () => refreshMark(claim, true));
-  claim.card.replaceChildren(cardHead(claim), text);
+  const quote = h('blockquote', 'card-quote', quoted(claim), { title: 'Show in transcript' });
+  quote.addEventListener('click', () => refreshMark(claim, true));
+  claim.card.replaceChildren(cardMeta(claim), quote);
   if (claim.kind === 'fact') factBody(claim);
   else debateBody(claim);
 }
 
-function cardHead(claim) {
+function quoted(claim) {
+  return `“${claim.quote || claim.claim}”`;
+}
+
+function cardMeta(claim) {
+  const s = speaker(claim.speaker);
+  const meta = h('div', 'card-meta');
+  const dot = h('span', 'speaker-dot');
+  dot.style.background = s.color;
+  const who = h('span', 'card-speaker', s.label);
+  who.dataset.speakerLabel = claim.speaker;
+  meta.append(dot, who);
+  const line = state.lines.get(claim.line_id);
+  if (line) meta.append(h('span', 'time', clock(line.t)));
+  const chip = latencyChip(claim.kind === 'fact' ? claim.verdict?.timings : claim.perspectivesTimings);
+  if (chip) meta.append(chip);
+  return meta;
+}
+
+function badge(claim) {
   const v = claim.verdict;
   let label = 'Checking';
   let icon = '';
   if (claim.kind !== 'fact') ({ label, icon } = KIND[claim.kind]);
   else if (v) ({ label, icon } = VERDICT[v.verdict]);
   if (v?.provisional) label += ' · first read';
-  const badge = h('span', 'badge');
-  badge.append(h('span', 'ico', icon), label);
-  const s = speaker(claim.speaker);
-  const who = h('span', 'card-speaker', s.label);
-  who.dataset.speakerLabel = claim.speaker;
-  who.style.color = s.color;
-  const head = h('div', 'card-head');
-  head.append(badge, who);
-  const chip = latencyChip(claim.kind === 'fact' ? v?.timings : claim.perspectivesTimings);
-  if (chip) head.append(chip);
-  return head;
+  const node = h('span', 'badge');
+  node.append(h('span', 'ico', icon), label);
+  return node;
 }
 
 function latencyChip(t) {
@@ -395,35 +397,124 @@ function latencyChip(t) {
 function factBody(claim) {
   const card = claim.card;
   const v = claim.verdict;
-  if (!v) {
-    card.append(h('p', 'working', 'Searching and checking…'));
-    return;
-  }
-  if (v.explanation) card.append(h('p', 'card-text', v.explanation));
-  if (v.correction && (v.verdict === 'false' || v.verdict === 'misleading')) card.append(h('p', 'correction', v.correction));
+  const row = h('div', 'verdict-row');
+  row.append(badge(claim));
+  card.append(row);
+  if (!v) return;
+  // True needs nothing but its sources; anything else says what's actually so.
+  const context = v.verdict === 'true' ? '' : v.verdict === 'unverifiable' ? v.explanation : v.correction || v.explanation;
   if (v.leaning) {
     const lean = VERDICT[v.leaning]?.label.toLowerCase() ?? v.leaning;
-    card.append(h('p', 'leaning', `Leans ${lean}, but no source backed it up. No receipts, no verdict.`));
+    row.append(h('span', 'verdict-text', `Leans ${lean}, but no source confirmed it.`));
+  } else if (context) {
+    row.append(h('span', 'verdict-text', context));
   }
-  if (v.provisional) card.append(h('p', 'working', 'First read from what Claude already knows. Confirming with a targeted search…'));
-  if (v.sources?.length) card.append(sourceList(v.sources));
-  if (v.repeat) card.append(h('p', 'leaning', 'Said before: same verdict as last time.'));
+  if (v.provisional) card.append(h('p', 'working', 'First read. Confirming with a search…'));
+  if (v.repeat) card.append(h('p', 'note', 'Said before: same verdict as last time.'));
   if (v.pushback) card.append(pushbackNote(v));
   if (claim.pushbackPending) card.append(h('p', 'working', 'Re-checking with a deeper web search…'));
-  else if (!v.provisional) card.append(factActions(claim));
+  const foot = h('div', 'card-foot');
+  if (v.sources?.length) foot.append(sourceList(v.sources));
+  if (!v.provisional && !claim.pushbackPending) foot.append(cardActions(claim, { pushBack: true }));
+  if (foot.childElementCount) card.append(foot);
+}
+
+// ---------- sources: one quiet chip, the details on hover ----------
+
+function siteName(url) {
+  const parts = domain(url).split('.');
+  if (parts.length > 1) parts.pop(); // nasa.gov -> nasa
+  if (parts.length > 1 && ['co', 'com', 'ac', 'gov', 'org', 'net', 'edu'].includes(parts.at(-1))) parts.pop(); // bbc.co.uk -> bbc
+  return parts.join('.');
+}
+
+function favicon(url) {
+  const src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain(url))}&sz=64`;
+  const img = h('img', null, null, { src, alt: '', referrerpolicy: 'no-referrer' });
+  img.addEventListener('error', () => { img.hidden = true; }); // no logo is better than a broken one
+  return img;
+}
+
+// Exa excerpts can carry the page's markdown (headings, table pipes); show them as plain text.
+function plainSnippet(text) {
+  return (text || '')
+    .replace(/(^|\s)#{1,6}\s+/g, '$1')
+    .replace(/\|?(\s*:?-{3,}:?\s*\|)+\s*:?-{0,}:?\s*/g, ' | ')
+    .replace(/\s*\|\s*/g, ' · ')
+    .replace(/\*\*|__|`/g, '')
+    .replace(/(\s*·\s*){2,}/g, ' · ')
+    .replace(/\s+/g, ' ')
+    .replace(/^\s*·\s*|\s*·\s*$/g, '')
+    .trim();
 }
 
 function sourceList(sources) {
-  const list = h('ul', 'sources');
-  for (const s of sources.slice(0, 3)) {
-    const item = h('li', 'source');
-    item.append(h('span', 'domain', domain(s.url)));
-    item.append(h('a', null, s.title || s.url, { href: safeUrl(s.url), target: '_blank', rel: 'noopener noreferrer' }));
-    if (s.published) item.append(h('span', 'time', ` · ${s.published}`));
-    if (s.snippet) item.append(h('span', 'snippet', s.snippet));
-    list.append(item);
-  }
-  return list;
+  const list = sources.slice(0, 5);
+  const wrap = h('div', 'sources');
+  const chip = h('a', 'source-chip', null, { href: safeUrl(list[0].url), target: '_blank', rel: 'noopener noreferrer' });
+  chip.append(h('span', 'site', siteName(list[0].url)));
+  if (list.length > 1) chip.append(h('span', 'more', `+${list.length - 1}`));
+  wrap.append(chip);
+  let pop = null;
+  let hiding = null;
+  const show = () => {
+    clearTimeout(hiding);
+    pop ??= sourcePopover(list);
+    if (!pop.isConnected) wrap.append(pop);
+    placePopover(pop, chip);
+    wrap.classList.add('open');
+  };
+  const hide = () => { hiding = setTimeout(() => wrap.classList.remove('open'), 150); };
+  wrap.addEventListener('mouseenter', show);
+  wrap.addEventListener('mouseleave', hide);
+  chip.addEventListener('focus', show);
+  wrap.addEventListener('focusout', (event) => { if (!wrap.contains(event.relatedTarget)) hide(); });
+  return wrap;
+}
+
+// Fixed, so the scrolling card list can't clip it; above the chip when there's no room below.
+function placePopover(pop, anchor) {
+  const r = anchor.getBoundingClientRect();
+  const width = Math.min(340, window.innerWidth - 32);
+  pop.style.left = `${Math.min(Math.max(16, r.left), window.innerWidth - width - 16)}px`;
+  const below = window.innerHeight - r.bottom > 280;
+  pop.classList.toggle('below', below);
+  pop.classList.toggle('above', !below);
+  pop.style.top = below ? `${r.bottom + 8}px` : '';
+  pop.style.bottom = below ? '' : `${window.innerHeight - r.top + 8}px`;
+}
+
+function sourcePopover(sources) {
+  const pop = h('div', 'source-pop');
+  const head = h('div', 'pop-head');
+  const prev = h('button', null, '‹', { type: 'button', 'aria-label': 'Previous source' });
+  const count = h('span', 'pop-count');
+  const next = h('button', null, '›', { type: 'button', 'aria-label': 'Next source' });
+  const icons = h('span', 'pop-icons');
+  for (const s of sources) icons.append(favicon(s.url));
+  head.append(prev, count, next, icons, h('span', null, plural(sources.length, 'source')));
+  const body = h('a', 'pop-body', null, { target: '_blank', rel: 'noopener noreferrer' });
+  pop.append(head, body);
+  let i = 0;
+  const render = () => {
+    const s = sources[i];
+    const url = safeUrl(s.url);
+    if (url) body.href = url;
+    else body.removeAttribute('href');
+    const site = h('div', 'pop-site');
+    site.append(favicon(s.url), siteName(s.url));
+    body.replaceChildren(site, h('div', 'pop-title', s.title || domain(s.url)));
+    const snippet = plainSnippet(s.snippet);
+    if (snippet) body.append(h('div', 'pop-snippet', snippet));
+    if (s.published) body.append(h('div', 'pop-date', s.published));
+    count.textContent = `${i + 1}/${sources.length}`;
+    prev.disabled = i === 0;
+    next.disabled = i === sources.length - 1;
+  };
+  prev.addEventListener('click', () => { i = Math.max(0, i - 1); render(); });
+  next.addEventListener('click', () => { i = Math.min(sources.length - 1, i + 1); render(); });
+  render();
+  return pop;
 }
 
 function pushbackNote(v) {
@@ -436,22 +527,31 @@ function pushbackNote(v) {
   return box;
 }
 
-function factActions(claim) {
+function cardActions(claim, { pushBack = false } = {}) {
   const row = h('div', 'actions');
-  const push = h('button', null, 'Push back', { type: 'button' });
-  push.addEventListener('click', () => openPushback(claim));
-  const dismiss = h('button', null, claim.dismissed ? 'Restore' : 'Dismiss', {
-    type: 'button',
-    title: 'Humans get the last word: drop this verdict from the tally',
-  });
-  dismiss.addEventListener('click', () => {
-    claim.dismissed = !claim.dismissed;
-    refreshMark(claim);
-    renderCard(claim);
-    updateStats();
-  });
-  row.append(push, dismiss);
+  if (pushBack) {
+    const push = h('button', null, 'Push back', { type: 'button' });
+    push.addEventListener('click', () => openPushback(claim));
+    row.append(push);
+  }
+  const dismiss = h('button', null, 'Dismiss', { type: 'button', title: 'Remove this card' });
+  dismiss.addEventListener('click', () => dismissClaim(claim));
+  row.append(dismiss);
   return row;
+}
+
+// Humans get the last word: a dismissed claim leaves the page, the transcript highlight, the tallies
+// and the recap.
+function dismissClaim(claim) {
+  claim.card.remove();
+  state.claims.delete(claim.id);
+  const line = state.lines.get(claim.line_id);
+  if (line) {
+    line.marks.delete(claim.id);
+    renderLine(line);
+  }
+  if (!state.claims.size) $('#cards').replaceChildren(empties.cards);
+  updateStats();
 }
 
 function openPushback(claim) {
@@ -476,11 +576,10 @@ function openPushback(claim) {
 
 function debateBody(claim) {
   const card = claim.card;
-  if (claim.crux) {
-    const crux = h('p', 'crux');
-    crux.append(h('b', null, claim.kind === 'value' ? 'A value call: ' : 'The crux: '), claim.crux);
-    card.append(crux);
-  }
+  const row = h('div', 'verdict-row');
+  row.append(badge(claim));
+  if (claim.crux) row.append(h('span', 'verdict-text', claim.crux));
+  card.append(row);
   if (claim.perspectives == null) {
     const first = state.voices.length ? `, ${state.voices.join(', ')} first` : '';
     card.append(h('p', 'working', `Finding how others see it${first}…`));
@@ -488,23 +587,27 @@ function debateBody(claim) {
   }
   if (!claim.perspectives.length) {
     card.append(h('p', 'no-takes', claim.perspectivesNote || 'No sourced takes found. This one is yours to weigh.'));
-    return;
+  } else {
+    const takes = h('div', 'takes');
+    claim.perspectives.forEach((p, i) => {
+      const take = h('div', `take s-${p.stance}`);
+      take.style.animationDelay = `${i * 90}ms`;
+      const head = h('div', 'take-head');
+      const avatar = h('span', 'avatar', initials(p.person));
+      avatar.style.background = personColor(p.person);
+      head.append(avatar, h('span', 'person', p.person), h('span', 'stance', STANCE[p.stance] ?? p.stance));
+      take.append(head, h('blockquote', 'take-quote', `“${p.quote}”`));
+      if (p.summary) take.append(h('p', 'take-summary', p.summary));
+      const src = p.source || {};
+      const where = [domain(src.url || ''), src.published].filter(Boolean).join(' · ');
+      take.append(h('a', 'take-source', `${where} ↗`, { href: safeUrl(src.url), target: '_blank', rel: 'noopener noreferrer', title: src.title || '' }));
+      takes.append(take);
+    });
+    card.append(takes);
   }
-  const takes = h('div', 'takes');
-  claim.perspectives.forEach((p, i) => {
-    const take = h('div', `take s-${p.stance}`);
-    take.style.animationDelay = `${i * 90}ms`;
-    const head = h('div', 'take-head');
-    const avatar = h('span', 'avatar', initials(p.person));
-    avatar.style.background = personColor(p.person);
-    head.append(avatar, h('span', 'person', p.person), h('span', 'stance', STANCE[p.stance] ?? p.stance));
-    take.append(head, h('p', 'take-summary', p.summary), h('blockquote', 'take-quote', `“${p.quote}”`));
-    const src = p.source || {};
-    const where = [domain(src.url || ''), src.published, src.title].filter(Boolean).join(' · ');
-    take.append(h('a', 'take-source', `Source: ${where} ↗`, { href: safeUrl(src.url), target: '_blank', rel: 'noopener noreferrer' }));
-    takes.append(take);
-  });
-  card.append(takes);
+  const foot = h('div', 'card-foot');
+  foot.append(cardActions(claim));
+  card.append(foot);
 }
 
 function focusCard(id) {
@@ -525,7 +628,7 @@ function setFilter(filter) {
 // ---------- tallies ----------
 
 function updateStats() {
-  const all = [...state.claims.values()].filter((c) => !c.dismissed);
+  const all = [...state.claims.values()];
   const settled = all.filter((c) => c.kind === 'fact' && c.verdict && !c.verdict.provisional);
   const count = (verdict) => settled.filter((c) => c.verdict.verdict === verdict).length;
   const times = settled
@@ -536,7 +639,7 @@ function updateStats() {
   const items = [
     [settled.length, 'facts checked'],
     [count('false'), 'false'],
-    [count('misleading'), 'misleading'],
+    [count('misleading'), 'missing context'],
     [all.filter((c) => c.kind !== 'fact').length, 'contested & values'],
   ];
   updateStageStatus();
@@ -554,7 +657,6 @@ function updateStats() {
 function renderScoreboard() {
   const tally = new Map();
   for (const claim of state.claims.values()) {
-    if (claim.dismissed) continue;
     const key = claim.kind !== 'fact' ? claim.kind : claim.verdict && !claim.verdict.provisional ? claim.verdict.verdict : null;
     if (!key) continue;
     const row = tally.get(claim.speaker) ?? {};
@@ -639,11 +741,8 @@ function beep() {
 // ---------- status and settings ----------
 
 function renderStatus() {
-  const c = state.config;
-  const pill = (text, cls = '') => h('span', `pill ${cls}`, text);
-  const pills = [];
-  if (c.test_data) pills.push(pill('Test data, not model output', 'warn')); // only under tests/serve.py
-  pills.push(pill(state.connected ? '● Connected' : '○ Reconnecting', state.connected ? 'live' : 'warn'));
+  document.body.dataset.connected = state.connected; // read by the browser test
+  const pills = state.config.test_data ? [h('span', 'pill warn', 'Test data, not model output')] : []; // only under tests/serve.py
   $('#status').replaceChildren(...pills);
 }
 
@@ -756,8 +855,8 @@ function hideStage() {
 }
 
 function pendingClaims() {
-  return [...state.claims.values()].filter((c) => !c.dismissed
-    && (c.kind === 'fact' ? !c.verdict || c.verdict.provisional : c.perspectives == null)).length;
+  return [...state.claims.values()]
+    .filter((c) => (c.kind === 'fact' ? !c.verdict || c.verdict.provisional : c.perspectives == null)).length;
 }
 
 function updateStageStatus() {
@@ -909,7 +1008,7 @@ function recapList(target, claims, render, empty) {
 }
 
 function openRecap() {
-  const claims = [...state.claims.values()].filter((c) => !c.dismissed);
+  const claims = [...state.claims.values()];
   const order = { false: 0, misleading: 1, true: 2, unverifiable: 3 };
   const facts = claims.filter((c) => c.kind === 'fact' && c.verdict && !c.verdict.provisional)
     .sort((a, b) => order[a.verdict.verdict] - order[b.verdict.verdict]); // what was wrong comes first
@@ -917,18 +1016,18 @@ function openRecap() {
   const values = claims.filter((c) => c.kind === 'value');
   recapList('#recap-facts', facts, (item, c) => {
     const v = c.verdict;
-    item.append(h('span', `tag v-${v.verdict}`, `${VERDICT[v.verdict].icon} ${VERDICT[v.verdict].label}`), c.claim, recapWho(c.speaker));
+    item.append(h('span', `tag v-${v.verdict}`, `${VERDICT[v.verdict].icon} ${VERDICT[v.verdict].label}`), quoted(c), recapWho(c.speaker));
     if (v.correction && (v.verdict === 'false' || v.verdict === 'misleading')) item.append(h('span', 'fix', `→ ${v.correction}`));
   }, 'No facts checked yet.');
   recapList('#recap-questions', open, (item, c) => {
-    item.append(c.claim, recapWho(c.speaker));
+    item.append(quoted(c), recapWho(c.speaker));
     const voices = h('div', 'voices');
     for (const p of c.perspectives ?? []) voices.append(h('span', 'voice', `${p.person} · ${(STANCE[p.stance] ?? p.stance).toLowerCase()}`));
     if (voices.childElementCount) item.append(voices);
   }, 'No contested claims yet.');
-  recapList('#recap-values', values, (item, c) => item.append(c.claim, recapWho(c.speaker)), 'No value claims yet.');
+  recapList('#recap-values', values, (item, c) => item.append(quoted(c), recapWho(c.speaker)), 'No value claims yet.');
   const falses = facts.filter((c) => ['false', 'misleading'].includes(c.verdict.verdict)).length;
-  $('#recap-sub').textContent = `${plural(facts.length, 'fact')} checked, ${falses} false or misleading · `
+  $('#recap-sub').textContent = `${plural(facts.length, 'fact')} checked, ${falses} false or missing context · `
     + `${plural(open.length, 'open question')} · ${plural(values.length, 'value')}`;
   $('#recap').hidden = false;
 }
@@ -975,13 +1074,7 @@ function plural(n, word) {
 
 // ---------- wiring ----------
 
-function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme;
-  store('cg-theme', theme);
-}
-
 async function init() {
-  applyTheme(store('cg-theme') || 'dark');
   empties.transcript = $('#transcript-empty');
   empties.cards = $('#cards-empty');
   state.config = await fetch('/api/config').then((r) => r.json());
@@ -990,6 +1083,9 @@ async function init() {
   updateStats();
 
   $('#start').addEventListener('click', start);
+  $('#cards').addEventListener('scroll', () => { // an open source popover follows its chip
+    for (const wrap of document.querySelectorAll('.sources.open')) placePopover($('.source-pop', wrap), $('.source-chip', wrap));
+  }, { passive: true });
   $('#clear').addEventListener('click', clearConversation);
   $('#say').addEventListener('submit', (event) => {
     event.preventDefault();
@@ -1008,8 +1104,6 @@ async function init() {
   $('#filters').addEventListener('click', (event) => {
     if (event.target.dataset.filter) setFilter(event.target.dataset.filter);
   });
-  $('#theme').addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
-  $('#present').addEventListener('click', () => document.body.classList.toggle('present'));
   $('#sound').addEventListener('click', () => {
     state.sound = !state.sound;
     $('#sound').textContent = state.sound ? '🔔' : '🔇';

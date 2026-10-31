@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -26,9 +26,7 @@
 
     <div class="toggles">
       <button id="recap-show" class="icon-btn" type="button" title="Common ground: what's settled and where people differ (S)">◎</button>
-      <button id="present" class="icon-btn" type="button" title="Presentation mode (P)">⛶</button>
       <button id="sound" class="icon-btn" type="button" title="Sound on false claims">🔇</button>
-      <button id="theme" class="icon-btn" type="button" title="Light / dark">◐</button>
     </div>
   </header>
 
@@ -44,7 +42,7 @@
       <div class="pane-head">
         <h2>Transcript</h2>
         <div class="legend">
-          <span class="lg v-true">✓ True</span><span class="lg v-false">✕ False</span><span class="lg v-misleading">! Misleading</span><span class="lg v-unverifiable">? Unverified</span><span class="lg k-contested">⇄ Contested</span><span class="lg k-value">◆ Value</span><span class="lg unchecked">Unmarked: not a claim, not checked</span>
+          <span class="lg v-true">✓ True</span><span class="lg v-false">✕ False</span><span class="lg v-misleading">… Missing context</span><span class="lg v-unverifiable">? Unverified</span><span class="lg k-contested">⇄ Contested</span><span class="lg k-value">◆ Value</span><span class="lg unchecked">Unmarked: not a claim, not checked</span>
         </div>
       </div>
       <div id="stage" class="stage" hidden>
@@ -70,7 +68,7 @@
 
     <aside class="pane claims-pane">
       <div class="pane-head">
-        <h2>Claims</h2>
+        <h2>Context</h2>
         <div class="filters" id="filters">
           <button data-filter="all" class="on" type="button">All</button>
           <button data-filter="fact" type="button">Facts</button>
@@ -81,7 +79,7 @@
       <div id="stats" class="stats"></div>
       <div id="scoreboard" class="scoreboard"></div>
       <div id="cards" class="cards">
-        <div class="empty" id="cards-empty"><p>Claims appear here the moment they're spoken.</p></div>
+        <div class="empty" id="cards-empty"><p>What's said gets its context here: checked facts, and how others see the rest.</p></div>
       </div>
     </aside>
   </main>
