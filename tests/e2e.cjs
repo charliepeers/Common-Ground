@@ -99,6 +99,7 @@ async function openRecap(page) {
   check(stats.includes('8 facts checked') && stats.includes('4 false'), `stats: ${stats}`);
   check(!/\d\.\ds|median/.test(stats), 'no seconds are shown');
   check(await count('#scoreboard, .score') === 0, 'no per-speaker tally');
+  check(await count('.card.fresh') === 0 && await count('.card.v-false .badge.changed') === 4, 'a false verdict lands like any other: its badge settles in, no ring');
   await page.screenshot({ path: `${shots}/2-study-group-done.png` });
 
   // Push back on the Great Wall verdict
@@ -150,8 +151,10 @@ async function openRecap(page) {
   await page.waitForFunction(() => document.querySelectorAll('.takes').length === 4, null, { timeout: 15000 });
   check(await count('.card.k-contested') === 3 && await count('.card.k-value') === 1, '3 contested claims and 1 value');
   check(await count('.take') === 10, `10 sourced takes (${await count('.take')})`);
-  check(await count('.take-source[href^="https://"]') === 10, 'every take links to its source');
+  check(await count('.take .take-quote .source-chip[href^="https://"]') === 10, 'every take cites its source with the same chip as facts');
   check(await count('.take.s-disagrees') >= 1 && await count('.take.s-agrees') >= 1, 'takes span agree and disagree');
+  const stanceColors = await page.evaluate(() => ['disagrees', 'complicates', 'agrees'].map((s) => getComputedStyle(document.querySelector(`.take.s-${s} .stance`)).color));
+  check(new Set(stanceColors).size === 3, `disagrees, complicates and agrees each have their own color (${stanceColors.join(' / ')})`);
   check(await count('mark.m-contested') === 3, 'contested claims are highlighted in the transcript');
   await openRecap(page);
   check(await count('#recap #recap-questions li') === 3 && await count('#recap #recap-questions .voice') >= 6, 'recap shows the open questions and who stands where');

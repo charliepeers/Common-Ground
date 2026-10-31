@@ -270,10 +270,10 @@ function setVerdict(event) {
   if (!claim) return;
   claim.verdict = event;
   claim.pushbackPending = false;
-  const alarming = !event.provisional && !event.repeat && (event.verdict === 'false' || event.verdict === 'misleading');
-  refreshMark(claim, alarming);
-  renderCard(claim, alarming);
-  if (event.pushback) $('.badge', claim.card)?.classList.add('changed'); // the re-check's answer lands visibly
+  refreshMark(claim);
+  renderCard(claim);
+  // Every verdict lands the same way, true or false: the badge settles in. No rings, no flashing.
+  if (!event.provisional) $('.badge', claim.card)?.classList.add('changed');
   updateStats();
 }
 
@@ -306,10 +306,10 @@ function pushbackFailed(event) {
 
 // A card leads with the words that were said. A plain fact then gets a small verdict and the sites
 // checked; anything else gets its context: what's actually so, or the people who see it differently.
-function renderCard(claim, fresh = false) {
+function renderCard(claim) {
   const v = claim.verdict;
   const tone = claim.kind !== 'fact' ? `k-${claim.kind}` : v ? `v-${v.verdict}` : 'checking';
-  const flags = [v?.provisional && 'provisional', fresh && 'fresh'].filter(Boolean);
+  const flags = [v?.provisional && 'provisional'].filter(Boolean);
   claim.card.className = ['card', tone, ...flags].join(' ');
   const quote = h('blockquote', 'card-quote', quoted(claim), { title: 'Show in transcript' });
   quote.addEventListener('click', () => refreshMark(claim, true));
@@ -568,11 +568,10 @@ function debateBody(claim) {
       const avatar = h('span', 'avatar', initials(p.person));
       avatar.style.background = personColor(p.person);
       head.append(avatar, h('span', 'person', p.person), h('span', 'stance', STANCE[p.stance] ?? p.stance));
-      take.append(head, h('blockquote', 'take-quote', `“${p.quote}”`));
+      const quote = h('blockquote', 'take-quote', `“${p.quote}”`);
+      if (p.source?.url) quote.append(' ', sourceList([p.source])); // cited like a fact: a chip, details on hover
+      take.append(head, quote);
       if (p.summary) take.append(h('p', 'take-summary', p.summary));
-      const src = p.source || {};
-      const where = [domain(src.url || ''), src.published].filter(Boolean).join(' · ');
-      take.append(h('a', 'take-source', `${where} ↗`, { href: safeUrl(src.url), target: '_blank', rel: 'noopener noreferrer', title: src.title || '' }));
       takes.append(take);
     });
     card.append(takes);
@@ -715,7 +714,7 @@ function openRecap() {
   recapList('#recap-questions', open, (item, c) => {
     item.append(quoted(c), recapWho(c.speaker));
     const voices = h('div', 'voices');
-    for (const p of c.perspectives ?? []) voices.append(h('span', 'voice', `${p.person} · ${(STANCE[p.stance] ?? p.stance).toLowerCase()}`));
+    for (const p of c.perspectives ?? []) voices.append(h('span', `voice s-${p.stance}`, `${p.person} · ${(STANCE[p.stance] ?? p.stance).toLowerCase()}`));
     if (voices.childElementCount) item.append(voices);
   }, 'No contested claims yet.');
   recapList('#recap-values', values, (item, c) => item.append(quoted(c), recapWho(c.speaker)), 'No value claims yet.');

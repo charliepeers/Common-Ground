@@ -167,7 +167,7 @@ The benchmark starts from text, so speech-to-text time is not included. Speech-t
 - **No receipts, no red.** A true, false or misleading verdict must cite a page the search actually returned. Otherwise it shows as unverified, along with which way it was leaning.
 - **A wrong red flag is worse than a missed one.** The prompts say so, and the benchmark counts false alarms separately.
 - **Quotes are verbatim or dropped.** Every perspective quote is checked in code against the text of its page.
-- **Contested isn't false.** Perspectives use one neutral color, and stance is a label, never red or green.
+- **Contested isn't false.** Stances are color-coded in hues the verdicts don't use (pink for disagrees, yellow for complicates, gray for agrees), so a disagreeing take never reads as a red "false".
 - **Humans get the last word.**
   - Anyone can push back on a verdict. Claude re-checks with a deeper web search and says whether it changed its mind.
   - Anyone can dismiss a card. It leaves the page, the transcript highlight, the tally and the recap.

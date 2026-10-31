@@ -24,6 +24,11 @@
   --contested-bg: #e7f3f8;
   --value: #9065b0;
   --value-bg: #f4f0f7;
+  /* Stances use hues the verdicts don't, so a disagreeing take never reads as a red "false". */
+  --disagrees: #c14c8a;
+  --disagrees-bg: #f9eef3;
+  --complicates: #cb912f;
+  --complicates-bg: #fbf3db;
   --radius: 14px;
   --shadow-sm: 0 1px 2px rgba(55, 53, 47, .05);
   --shadow: 0 1px 2px rgba(55, 53, 47, .05), 0 12px 32px rgba(55, 53, 47, .1);
@@ -172,7 +177,6 @@ mark.flash { animation: flash 1s ease-out 2; }
 .card.k-value { --tone: var(--value); --tone-bg: var(--value-bg); }
 .card.provisional { border-style: dashed; }
 .card.focus { box-shadow: 0 0 0 2px var(--tone); }
-.card.v-false.fresh { animation: rise 250ms var(--ease-out), glow 900ms var(--ease-out); }
 .badge.changed { animation: badge 320ms var(--ease-out); }
 .card-meta { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .speaker-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
@@ -273,13 +277,13 @@ mark.flash { animation: flash 1s ease-out 2; }
   margin-left: auto; font-size: 12px; font-weight: 500;
   padding: 1px 8px; border-radius: 6px; color: var(--muted); background: var(--panel-2);
 }
+.s-disagrees .stance { color: var(--disagrees); background: var(--disagrees-bg); }
+.s-complicates .stance { color: var(--complicates); background: var(--complicates-bg); }
 .s-disagrees .stance::before { content: "\21C4  "; }
 .s-agrees .stance::before { content: "=  "; }
 .s-complicates .stance::before { content: "\2248  "; }
 .take-quote { margin: 12px 0 8px; font-size: 15px; line-height: 1.55; color: var(--text); }
 .take-summary { margin: 0 0 8px; font-size: 13px; line-height: 1.5; color: var(--muted); }
-.take-source { font-size: 12px; color: var(--muted); text-decoration: none; }
-.take-source:hover { color: var(--text); text-decoration: underline; }
 .no-takes { font-size: 13.5px; color: var(--muted); margin: 14px 0 0; }
 
 /* ---------- common ground recap ---------- */
@@ -311,6 +315,8 @@ mark.flash { animation: flash 1s ease-out 2; }
 .recap-col li .fix { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
 .recap-col li .voices { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .recap-col li .voice { font-size: 12px; padding: 1px 8px; border-radius: 6px; background: var(--panel-2); color: var(--muted); }
+.recap-col li .voice.s-disagrees { color: var(--disagrees); background: var(--disagrees-bg); }
+.recap-col li .voice.s-complicates { color: var(--complicates); background: var(--complicates-bg); }
 .recap-empty { color: var(--faint); font-size: 13.5px; }
 .tag.v-true { color: var(--true); background: var(--true-bg); }
 .tag.v-false { color: var(--false); background: var(--false-bg); }
@@ -345,7 +351,6 @@ body.present .caption { bottom: 0; font-size: 18px; }
 @keyframes pulse { 50% { opacity: .35; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes shimmer { 50% { background-color: var(--panel-3); } }
-@keyframes glow { 0% { box-shadow: 0 0 0 0 rgba(212, 76, 71, .45); } 100% { box-shadow: 0 0 0 12px transparent; } }
 @keyframes flash { 50% { filter: brightness(.92); } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
