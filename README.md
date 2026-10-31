@@ -1,7 +1,5 @@
 # Common Ground
 
-**Facts get checked. Worldviews get heard. You decide.**
-
 One device listens to a conversation, talk or broadcast, and works through every statement as it's spoken:
 
 | Lane | What it is | What you see |
@@ -52,7 +50,7 @@ Then start the server:
 .venv/bin/uvicorn server.app:app --port 8000
 ```
 
-Open http://localhost:8000 and press **Start**. One microphone listens to the whole room, and voices are told apart by diarization (see "Telling voices apart"). To check a single line without speaking, type it into the box under the transcript.
+Open http://localhost:8000 and press **Start**. One microphone listens to the whole room, and voices are told apart by diarization (see "Telling voices apart").
 
 On screen:
 

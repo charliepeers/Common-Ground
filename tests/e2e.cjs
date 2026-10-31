@@ -13,12 +13,11 @@ const conversation = (id) => conversations.find((c) => c.id === id);
 const problems = [];
 const check = (ok, message) => { if (!ok) problems.push(message); console.log(`${ok ? 'ok  ' : 'FAIL'} ${message}`); };
 
-// Types lines in by hand, the way anyone can check a statement without speech-to-text.
+// Sends lines as if they had been heard: a headless browser has no microphone, so the page exposes
+// a hook for this under the test server only.
 async function typeIn(page, lines) {
   for (const line of lines) {
-    await page.fill('#say-speaker', line.speaker);
-    await page.fill('#say-text', line.text);
-    await page.press('#say-text', 'Enter');
+    await page.evaluate(([speaker, text]) => window.commonGround.say(speaker, text), [line.speaker, line.text]);
     await page.waitForTimeout(250);
   }
 }
@@ -46,8 +45,8 @@ async function openRecap(page) {
   await page.waitForSelector('body[data-connected="true"]', { timeout: 10000 });
   check(await page.locator('.pill.warn', { hasText: 'test data, not model output' }).count() === 1, 'test data is labeled as such');
   check(await count('#status .pill') === 1, 'no status pills beyond the test-data label');
-  check(await count('#source, #filters, .legend, #chyron, #stage, #recap-show, #sound, #theme, #present, .latency, #voice-input') === 0,
-    'microphone only: no source menu, voices bar, filters, legend, pop-ups or header icons');
+  check(await count('#source, #say, #filters, .legend, #chyron, #stage, #recap-show, #sound, #theme, #present, .latency, #voice-input') === 0,
+    'microphone only: no source menu, typed-line box, voices bar, filters, legend, pop-ups or header icons');
   const header = await page.locator('.topbar .controls button').allTextContents();
   check(header.join('|') === 'Clear|Start', `Clear and Start sit at the top right (${header.join(', ')})`);
 
@@ -59,11 +58,15 @@ async function openRecap(page) {
   await page.screenshot({ path: `${shots}/1-first-false-claim.png` });
   await typeIn(page, study.lines.slice(1));
   await settle(page, study.lines.length);
-  const strip = await page.evaluate(() => {
+  const panel = await page.evaluate(() => {
     const box = document.querySelector('#transcript');
-    return { height: box.clientHeight, atEnd: box.scrollHeight - box.scrollTop - box.clientHeight < 8, overflows: box.scrollHeight > box.clientHeight };
+    const side = (sel) => document.querySelector(sel).getBoundingClientRect();
+    return {
+      height: box.clientHeight, atEnd: box.scrollHeight - box.scrollTop - box.clientHeight < 8,
+      sideBySide: side('.transcript-pane').right <= side('.claims-pane').left,
+    };
   });
-  check(strip.height < 80 && strip.overflows && strip.atEnd, `the transcript is a two-line strip on its latest lines (${strip.height}px)`);
+  check(panel.sideBySide && panel.height > 300 && panel.atEnd, `two panels side by side; the transcript is a full panel on its latest lines (${panel.height}px)`);
 
   await openRecap(page);
   check(await count('#recap-facts li') === 8, `recap lists the 8 checked facts (${await count('#recap-facts li')})`);
@@ -94,7 +97,7 @@ async function openRecap(page) {
   const stats = await page.locator('#stats').textContent();
   check(stats.includes('8 facts checked') && stats.includes('4 false'), `stats: ${stats}`);
   check(!/\d\.\ds|median/.test(stats), 'no seconds are shown');
-  check(await count('.score') === 3, `scoreboard has 3 speakers (${await count('.score')})`);
+  check(await count('#scoreboard, .score') === 0, 'no per-speaker tally');
   await page.screenshot({ path: `${shots}/2-study-group-done.png` });
 
   // Push back on the Great Wall verdict
@@ -111,7 +114,8 @@ async function openRecap(page) {
   // Rename a speaker: the label changes everywhere
   page.once('dialog', (d) => d.accept('Alex R.'));
   await page.locator('.speaker-name', { hasText: 'Alex' }).first().click();
-  check(await page.locator('.score .who', { hasText: 'Alex R.' }).count() === 1, 'renaming a speaker updates the scoreboard');
+  check(await page.locator('.card .card-speaker', { hasText: 'Alex R.' }).count() === 3 && await page.locator('.speaker-name', { hasText: 'Alex R.' }).count() >= 1,
+    'renaming a speaker updates the transcript and every card');
 
   // Dismiss removes a card entirely
   const robotics = page.locator('.card', { hasText: 'robotics' });
@@ -128,7 +132,7 @@ async function openRecap(page) {
   await page.click('#clear');
   await page.waitForFunction(() => !document.querySelector('.bubble, .card'), null, { timeout: 5000 });
   check(await page.locator('#transcript-empty').isVisible() && await page.locator('#cards-empty').isVisible(), 'clear empties the transcript and the cards');
-  check(await count('.score') === 0 && (await page.locator('#stats').textContent()).startsWith('0 facts checked'), 'clear resets the tally and the scoreboard');
+  check((await page.locator('#stats').textContent()).startsWith('0 facts checked'), 'clear resets the tally');
   await typeIn(page, study.lines.slice(0, 1)); // typed at once, while the new connection opens
   await page.waitForSelector('.card.v-false', { timeout: 15000 });
   check(!(await page.locator('.card.v-false').textContent()).includes('Said before'), 'after clear, the same claim is checked fresh');

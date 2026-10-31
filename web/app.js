@@ -123,8 +123,6 @@ function handle(event) {
 function speaker(raw) {
   if (!state.speakers.has(raw)) {
     state.speakers.set(raw, { label: raw, color: SPEAKER_COLORS[state.speakers.size % SPEAKER_COLORS.length] });
-    const list = $('#speaker-list');
-    list.append(h('option', null, null, { value: raw }));
   }
   return state.speakers.get(raw);
 }
@@ -159,7 +157,6 @@ function applyName(raw, name) {
   document.querySelectorAll('[data-speaker-label]').forEach((node) => {
     if (node.dataset.speakerLabel === raw) node.textContent = s.label;
   });
-  renderScoreboard();
 }
 
 // ---------- transcript ----------
@@ -610,35 +607,6 @@ function updateStats() {
     span.append(h('b', null, String(n)), ` ${label}`);
     return span;
   }));
-  renderScoreboard();
-}
-
-function renderScoreboard() {
-  const tally = new Map();
-  for (const claim of state.claims.values()) {
-    const key = claim.kind !== 'fact' ? claim.kind : claim.verdict && !claim.verdict.provisional ? claim.verdict.verdict : null;
-    if (!key) continue;
-    const row = tally.get(claim.speaker) ?? {};
-    row[key] = (row[key] ?? 0) + 1;
-    tally.set(claim.speaker, row);
-  }
-  const order = [['true', '✓', 'var(--true)'], ['false', '✕', 'var(--false)'], ['misleading', '!', 'var(--misleading)'],
-    ['unverifiable', '?', 'var(--unverifiable)'], ['contested', '⇄', 'var(--contested)'], ['value', '◆', 'var(--value)']];
-  $('#scoreboard').replaceChildren(...[...tally].map(([raw, row]) => {
-    const s = speaker(raw);
-    const box = h('div', 'score');
-    const who = h('span', 'who', s.label);
-    who.dataset.speakerLabel = raw;
-    who.style.color = s.color;
-    box.append(who);
-    for (const [key, icon, color] of order) {
-      if (!row[key]) continue;
-      const n = h('span', 'n', `${icon}${row[key]}`, { title: key });
-      n.style.color = color;
-      box.append(n);
-    }
-    return box;
-  }));
 }
 
 // ---------- toasts: only errors, and speaker-name suggestions ----------
@@ -783,7 +751,6 @@ function clearConversation() {
   setCaption('', '');
   $('#transcript').replaceChildren(empties.transcript);
   $('#cards').replaceChildren(empties.cards);
-  $('#speaker-list').replaceChildren();
   $('#toasts').replaceChildren();
   updateStats();
 }
@@ -810,13 +777,6 @@ async function init() {
     for (const wrap of document.querySelectorAll('.sources.open')) placePopover($('.source-pop', wrap), $('.source-chip', wrap));
   }, { passive: true });
   $('#clear').addEventListener('click', clearConversation);
-  $('#say').addEventListener('submit', (event) => {
-    event.preventDefault();
-    const text = $('#say-text').value.trim();
-    if (!text) return;
-    say($('#say-speaker').value.trim() || 'Me', text);
-    $('#say-text').value = '';
-  });
   $('#recap-close').addEventListener('click', closeRecap);
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeRecap();
@@ -828,6 +788,7 @@ async function init() {
       else closeRecap();
     }
   });
+  if (state.config.test_data) window.commonGround = { say }; // the browser test sends its lines here (tests/serve.py only)
   connect();
 }
 

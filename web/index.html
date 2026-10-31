@@ -10,10 +10,7 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <div>
-        <h1>Common Ground</h1>
-        <p class="tagline">Facts get checked. Worldviews get heard. You decide.</p>
-      </div>
+      <h1>Common Ground</h1>
     </div>
 
     <div class="status" id="status" aria-live="polite"></div>
@@ -26,17 +23,17 @@
 
 
   <main>
-    <section class="pane transcript-pane" aria-label="Transcript">
+    <section class="pane transcript-pane">
+      <div class="pane-head">
+        <h2>Transcript</h2>
+      </div>
       <div id="transcript" class="transcript">
-        <p class="empty" id="transcript-empty">The transcript shows here, two lines at a time. Scroll up for the rest.</p>
+        <div class="empty" id="transcript-empty">
+          <p class="empty-title">Press Start and talk.</p>
+          <p>Everything said shows up here.</p>
+        </div>
       </div>
       <div id="caption" class="caption" hidden><span class="caption-speaker"></span><span class="caption-text"></span></div>
-      <form id="say" class="say" autocomplete="off">
-        <input id="say-speaker" list="speaker-list" value="Me" aria-label="Speaker" class="say-speaker">
-        <datalist id="speaker-list"></datalist>
-        <input id="say-text" placeholder="Type something a speaker said, then Enter" aria-label="Statement">
-        <button type="submit">Send</button>
-      </form>
     </section>
 
     <aside class="pane claims-pane">
@@ -44,10 +41,8 @@
         <h2>Context</h2>
       </div>
       <div id="stats" class="stats"></div>
-      <div id="scoreboard" class="scoreboard"></div>
       <div id="cards" class="cards">
         <div class="empty" id="cards-empty">
-          <p class="empty-title">Press Start and talk.</p>
           <p>Each claim gets its context here. Facts are checked against sources; contested claims and values show how other people see them, in their own words.</p>
         </div>
       </div>
